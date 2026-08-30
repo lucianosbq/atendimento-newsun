@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07192E">
+  <meta name="description" content="Atendimento inteligente NewSun Energy — respostas claras e encaminhamento humano por WhatsApp.">
+  <meta name="robots" content="index,follow">
+  <title>Atendimento Inteligente | NewSun Energy</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+  <script src="./config.js" defer></script>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Ir para o atendimento</a>
+
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <div class="brand" aria-label="NewSun Energy">
+      <span class="brand-monogram" aria-hidden="true">NS</span>
+      <span class="brand-copy">
+        <strong>NewSun</strong>
+        <small>Atendimento inteligente</small>
+      </span>
+    </div>
+
+    <div class="service-status" role="status" aria-live="polite">
+      <span class="status-dot"></span>
+      <span id="service-status-text">Assistente disponível</span>
+    </div>
+  </header>
+
+  <main id="main" class="app-shell">
+    <section id="welcome-view" class="welcome-view" aria-labelledby="welcome-title">
+      <div class="hero-copy">
+        <p class="eyebrow">Energia limpa com suporte humano</p>
+        <h1 id="welcome-title">Como podemos orientar você hoje</h1>
+        <p class="hero-description">
+          Escolha uma área. A inteligência artificial tenta resolver sua dúvida com informações públicas aprovadas.
+          Quando for necessário, encaminhamos seu contato ao profissional certo pelo WhatsApp.
+        </p>
+      </div>
+
+      <div class="trust-strip" aria-label="Compromissos do atendimento">
+        <span>Respostas claras</span>
+        <span>Dados minimizados</span>
+        <span>Handoff com protocolo</span>
+      </div>
+
+      <div class="section-heading">
+        <h2>Escolha o departamento</h2>
+        <p>Você poderá mudar de área durante a conversa.</p>
+      </div>
+
+      <div id="department-grid" class="department-grid" role="list"></div>
+
+      <aside class="privacy-note">
+        <span class="privacy-icon" aria-hidden="true">◎</span>
+        <div>
+          <strong>Proteção de dados desde o primeiro contato</strong>
+          <p>Não envie senha, documento completo, dados bancários ou informações confidenciais pelo chat.</p>
+        </div>
+      </aside>
+    </section>
+
+    <section id="chat-view" class="chat-view" hidden aria-labelledby="chat-title">
+      <div class="chat-topbar">
+        <button id="back-button" class="icon-button" type="button" aria-label="Voltar aos departamentos">←</button>
+        <div class="chat-context">
+          <span id="department-icon" class="context-icon" aria-hidden="true"></span>
+          <div>
+            <small>Você está falando com</small>
+            <h1 id="chat-title">Atendimento NewSun</h1>
+          </div>
+        </div>
+        <div class="chat-topbar-right">
+          <span id="protocol-chip" class="protocol-chip" hidden></span>
+          <button id="change-department-button" class="text-button" type="button">Mudar área</button>
+        </div>
+      </div>
+
+      <div id="demo-banner" class="demo-banner" hidden>
+        Modo demonstração: respostas e notificações são simuladas. Ative a API no arquivo <code>config.js</code>.
+      </div>
+
+      <div class="chat-layout">
+        <div class="conversation-column">
+          <div id="messages" class="messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+
+          <div id="suggestions" class="suggestions" aria-label="Sugestões de perguntas"></div>
+
+          <form id="chat-form" class="composer" autocomplete="off">
+            <label class="sr-only" for="message-input">Digite sua dúvida</label>
+            <textarea
+              id="message-input"
+              name="message"
+              rows="1"
+              maxlength="2000"
+              placeholder="Escreva sua dúvida"
+              enterkeyhint="send"
+              required
+            ></textarea>
+            <button id="send-button" class="send-button" type="submit" aria-label="Enviar mensagem">
+              <span>Enviar</span>
+              <span aria-hidden="true">↑</span>
+            </button>
+          </form>
+
+          <div class="composer-footer">
+            <span>A IA pode cometer erros. Informações contratuais e da sua conta exigem validação humana.</span>
+            <button id="human-button" class="human-link" type="button">Pedir atendimento humano</button>
+          </div>
+        </div>
+
+        <aside class="service-card" aria-label="Como funciona o atendimento">
+          <p class="eyebrow">Jornada de atendimento</p>
+          <ol class="service-steps">
+            <li class="active"><span>1</span><div><strong>Entender</strong><small>A IA identifica sua necessidade</small></div></li>
+            <li><span>2</span><div><strong>Resolver</strong><small>Responde com conteúdo público aprovado</small></div></li>
+            <li><span>3</span><div><strong>Encaminhar</strong><small>Aciona o setor certo quando necessário</small></div></li>
+          </ol>
+          <div class="service-promise">
+            <strong>Você não fica preso ao site</strong>
+            <p>Após o handoff confirmado, pode fechar a página. O profissional recebe seu contato e chama você pelo WhatsApp.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="success-view" class="success-view" hidden aria-labelledby="success-title">
+      <div id="success-icon" class="success-icon" aria-hidden="true">✓</div>
+      <p id="success-eyebrow" class="eyebrow">Encaminhamento concluído</p>
+      <h1 id="success-title">Você pode fechar esta página</h1>
+      <p id="success-message" class="success-message"></p>
+      <div class="protocol-card">
+        <span>Protocolo</span>
+        <strong id="protocol-number"></strong>
+      </div>
+      <p id="success-footnote" class="success-footnote">
+        O contato será realizado pelo WhatsApp informado. Desconfie de pedidos de senha, código de verificação ou pagamento fora dos canais oficiais.
+      </p>
+      <button id="new-conversation-button" class="secondary-button" type="button">Iniciar outro atendimento</button>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>NewSun Energy Group</span>
+    <nav aria-label="Informações legais">
+      <button id="privacy-button" class="footer-link" type="button">Privacidade</button>
+      <span aria-hidden="true">•</span>
+      <span>Atendimento público</span>
+    </nav>
+  </footer>
+
+  <dialog id="handoff-dialog" class="modal">
+    <form id="handoff-form" method="dialog" class="modal-card">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Atendimento humano</p>
+          <h2>Como o time pode chamar você</h2>
+        </div>
+        <button id="close-handoff-button" class="icon-button" type="button" aria-label="Fechar">×</button>
+      </div>
+
+      <p id="handoff-context" class="modal-description"></p>
+
+      <div class="form-grid">
+        <label>
+          <span>Nome</span>
+          <input id="handoff-name" name="name" type="text" maxlength="100" autocomplete="name" required>
+        </label>
+        <label>
+          <span>WhatsApp com DDD</span>
+          <input id="handoff-phone" name="phone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="(11) 99999-9999" required>
+        </label>
+        <label class="full-width">
+          <span>E-mail <em>opcional</em></span>
+          <input id="handoff-email" name="email" type="email" maxlength="160" autocomplete="email">
+        </label>
+        <label class="full-width">
+          <span>Condomínio, empresa ou organização <em>opcional</em></span>
+          <input id="handoff-organization" name="organization" type="text" maxlength="140" autocomplete="organization">
+        </label>
+      </div>
+
+      <label class="consent-row">
+        <input id="handoff-consent" name="consent" type="checkbox" required>
+        <span>Autorizo a NewSun a usar estes dados para registrar o atendimento e entrar em contato comigo pelo WhatsApp sobre esta solicitação.</span>
+      </label>
+
+      <div id="turnstile-container" class="turnstile-container"></div>
+      <p id="handoff-error" class="form-error" role="alert" hidden></p>
+
+      <button id="handoff-submit" class="primary-button" type="submit">Enviar para o departamento</button>
+      <p class="retention-note">Seus dados não entram no treinamento da IA e são mantidos apenas pelo período necessário ao atendimento e às obrigações aplicáveis.</p>
+    </form>
+  </dialog>
+
+  <dialog id="intake-dialog" class="modal">
+    <form id="intake-form" method="dialog" class="modal-card">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Antes de começar</p>
+          <h2>Identifique-se para gerar seu protocolo</h2>
+        </div>
+        <button id="close-intake-button" class="icon-button" type="button" aria-label="Fechar">×</button>
+      </div>
+
+      <p class="modal-description">
+        Com esses dados registramos seu atendimento com número de protocolo e, se você pedir uma pessoa,
+        o setor já recebe todo o contexto — sem repetir nada.
+      </p>
+
+      <div class="form-grid">
+        <label class="full-width">
+          <span>Nome completo</span>
+          <input id="intake-name" name="name" type="text" maxlength="100" autocomplete="name" required>
+        </label>
+        <label>
+          <span>E-mail</span>
+          <input id="intake-email" name="email" type="email" maxlength="160" autocomplete="email" required>
+        </label>
+        <label>
+          <span>WhatsApp com DDD</span>
+          <input id="intake-phone" name="phone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="(11) 99999-9999" required>
+        </label>
+      </div>
+
+      <label class="consent-row">
+        <input id="intake-consent" name="consent" type="checkbox" required>
+        <span>Autorizo a NewSun a usar estes dados para registrar o atendimento e entrar em contato comigo pelo WhatsApp sobre esta solicitação.</span>
+      </label>
+
+      <div id="intake-turnstile-container" class="turnstile-container"></div>
+      <p id="intake-error" class="form-error" role="alert" hidden></p>
+
+      <button id="intake-submit" class="primary-button" type="submit">Iniciar atendimento</button>
+      <p class="retention-note">Seus dados não entram no treinamento da IA e são mantidos apenas pelo período necessário ao atendimento e às obrigações aplicáveis.</p>
+    </form>
+  </dialog>
+
+  <dialog id="privacy-dialog" class="modal">
+    <article class="modal-card privacy-card">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Privacidade por padrão</p>
+          <h2>Como seus dados são tratados</h2>
+        </div>
+        <button id="close-privacy-button" class="icon-button" type="button" aria-label="Fechar">×</button>
+      </div>
+      <div class="privacy-content">
+        <p>Para iniciar o atendimento pedimos nome completo, e-mail e WhatsApp. Com eles geramos seu número de protocolo e registramos o atendimento no CRM da NewSun, para que nenhum contexto se perca se você pedir uma pessoa.</p>
+        <h3>O que coletamos</h3>
+        <p>Nome completo, e-mail, WhatsApp, departamento, organização opcional, consentimento e um resumo mínimo da dúvida.</p>
+        <h3>Para quê</h3>
+        <p>Registrar o protocolo, direcionar o caso e permitir que um profissional autorizado entre em contato.</p>
+        <h3>O que não deve ser enviado</h3>
+        <p>Senhas, códigos de autenticação, dados bancários, documentos completos, segredos comerciais ou dados de terceiros sem autorização.</p>
+        <h3>Decisões automatizadas</h3>
+        <p>A IA orienta e classifica. Ela não aprova contratos, pagamentos, descontos, crédito, decisões jurídicas ou alterações em cadastro.</p>
+      </div>
+      <button id="privacy-ok-button" class="secondary-button" type="button">Entendi</button>
+    </article>
+  </dialog>
+
+  <noscript>
+    <div class="noscript">Ative o JavaScript para utilizar o atendimento inteligente.</div>
+  </noscript>
+</body>
+</html>

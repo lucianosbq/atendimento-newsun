@@ -1,0 +1,49 @@
+name = "newsun-atendimento-api"
+main = "src/index.js"
+compatibility_date = "2026-08-30"
+workers_dev = true
+
+[observability]
+enabled = true
+
+[ai]
+binding = "AI"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "newsun-atendimento"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "newsun-public-knowledge"
+
+[vars]
+ENVIRONMENT = "production"
+ALLOWED_ORIGINS = "https://SEU-USUARIO.github.io,https://atendimento.newsun.energy"
+MODEL_CHAT = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+MODEL_EMBEDDING = "@cf/baai/bge-m3"
+META_GRAPH_VERSION = "v26.0"
+TURNSTILE_REQUIRED = "true"
+CHAT_RATE_LIMIT = "30"
+CHAT_RATE_WINDOW_SECONDS = "600"
+HANDOFF_RATE_LIMIT = "5"
+HANDOFF_RATE_WINDOW_SECONDS = "3600"
+SESSION_RATE_LIMIT = "8"
+SESSION_RATE_WINDOW_SECONDS = "3600"
+BUSINESS_HOURS_START = "08:00"
+BUSINESS_HOURS_END = "18:00"
+BUSINESS_DAYS = "1,2,3,4,5"
+BUSINESS_TZ_OFFSET_MINUTES = "-180"
+HANDOFF_RETENTION_DAYS = "90"
+RAG_TOP_K = "7"
+RAG_MIN_SCORE = "0.45"
+PUBLIC_KB_NAMESPACE = "public"
+CONSENT_TEXT_VERSION = "2026-08-30-v1"
+WHATSAPP_EMPLOYEE_TEMPLATE = "newsun_novo_atendimento_setor"
+WHATSAPP_CUSTOMER_TEMPLATE = "newsun_atendimento_recebido"
+WHATSAPP_LANGUAGE = "pt_BR"
+
+[triggers]
+crons = ["17 3 * * *"]

@@ -1,0 +1,12 @@
+{
+  "name": "newsun-atendimento-ia",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "npm --prefix worker test",
+    "check": "npm --prefix worker run check && node --check docs/app.js && node --check docs/config.js",
+    "secrets": "node scripts/generate-secrets.mjs",
+    "ingest": "node scripts/ingest-public.mjs knowledge/public/seed-public.json"
+  }
+}

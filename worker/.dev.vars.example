@@ -1,0 +1,19 @@
+# Nunca versionar o arquivo .dev.vars real.
+TURNSTILE_SECRET=0x0000000000000000000000000000000AA
+RATE_LIMIT_SALT=gere-um-segredo-longo
+PII_ENCRYPTION_KEY=BASE64_DE_32_BYTES
+ADMIN_INGEST_TOKEN=gere-um-token-longo
+
+# WhatsApp Cloud API (Meta)
+META_ACCESS_TOKEN=
+META_PHONE_NUMBER_ID=
+META_APP_SECRET=
+META_WEBHOOK_VERIFY_TOKEN=
+
+# Rotas privadas por departamento; NÃO colocar no frontend.
+DEPARTMENT_ROUTES_JSON={"comercial":{"label":"Comercial","employeeName":"Equipe Comercial","employeeWhatsApp":"5511999999999","bitrixAssignedById":"123"},"atendimento":{"label":"Clientes e CS","employeeName":"Equipe de CS","employeeWhatsApp":"5511999999999","bitrixAssignedById":"456"}}
+
+# Integrações opcionais
+BITRIX_WEBHOOK_URL=
+N8N_HANDOFF_URL=
+N8N_SHARED_SECRET=

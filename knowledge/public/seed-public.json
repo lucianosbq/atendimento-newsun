@@ -1,0 +1,94 @@
+{
+  "documents": [
+    {
+      "sourceId": "newsun-institucional-publico-v1",
+      "title": "Quem é a NewSun",
+      "sourceUrl": "https://www.newsun.energy/",
+      "department": "geral",
+      "visibility": "public",
+      "approvedBy": "PENDENTE_APROVACAO_CMO_JURIDICO",
+      "approvedAt": "",
+      "content": "A NewSun moderniza a relação de condomínios e empresas com energia limpa por meio de tecnologia, transparência e suporte humano. A proposta de valor combina previsibilidade, economia progressiva, sustentabilidade real e uma experiência energética superior. A NewSun não deve ser apresentada como uma empresa de energia barata, uma integradora de painéis solares ou uma simples vendedora de desconto. O cliente é o protagonista da decisão e a NewSun atua como orientadora da jornada."
+    },
+    {
+      "sourceId": "newsun-assinatura-como-funciona-v1",
+      "title": "Como funciona a energia limpa por assinatura",
+      "sourceUrl": "https://www.newsun.energy/",
+      "department": "comercial",
+      "visibility": "public",
+      "approvedBy": "PENDENTE_APROVACAO_CMO_JURIDICO",
+      "approvedAt": "",
+      "content": "Na energia limpa por assinatura, a geração ocorre em usinas remotas. O cliente permanece conectado à distribuidora local e, quando a unidade é elegível e a operação é aprovada, créditos de energia são considerados conforme as regras aplicáveis. Em regra, não é necessário instalar painéis no condomínio ou na empresa, realizar obra local ou comprar uma usina. Elegibilidade, disponibilidade, benefício econômico e prazo de início dependem da unidade consumidora, da distribuidora, da modalidade contratual e da análise vigente. Nenhum percentual, prazo ou condição individual deve ser prometido sem simulação e validação humanas."
+    },
+    {
+      "sourceId": "newsun-atendimento-privacidade-v1",
+      "title": "Privacidade e segurança no atendimento",
+      "sourceUrl": "https://www.newsun.energy/",
+      "department": "atendimento",
+      "visibility": "public",
+      "approvedBy": "PENDENTE_APROVACAO_CMO_JURIDICO",
+      "approvedAt": "",
+      "content": "Dúvidas gerais podem ser respondidas sem nome ou telefone. O atendimento solicita dados de contato apenas quando o visitante pede encaminhamento humano. O visitante não deve enviar senha, código de autenticação, dado bancário, documento completo, credencial, segredo comercial ou dado de terceiro sem autorização. Consultas de conta, fatura, boleto, contrato, pagamento, cadastro ou ocorrência individual exigem autenticação e acesso de uma pessoa autorizada. Após o encaminhamento confirmado, o visitante pode fechar o site; o departamento recebe o protocolo e o contato autorizado para continuar pelo WhatsApp corporativo."
+    },
+    {
+      "sourceId": "newsun-financeiro-orientacao-v1",
+      "title": "Orientação geral sobre faturas e pagamentos",
+      "sourceUrl": "https://www.newsun.energy/",
+      "department": "financeiro",
+      "visibility": "public",
+      "approvedBy": "PENDENTE_APROVACAO_CMO_JURIDICO",
+      "approvedAt": "",
+      "content": "O assistente pode explicar o fluxo geral de faturamento e indicar o canal correto, mas não acessa boletos, valores, histórico de pagamento, dados bancários ou cadastro do cliente. Segunda via, cobrança não reconhecida, conciliação, alteração cadastral e análise de valores devem ser encaminhadas ao Financeiro com protocolo. A comunicação financeira deve ser clara, precisa, transparente e antecipar as dúvidas do cliente sem expor informações pessoais."
+    },
+    {
+      "sourceId": "newsun-contratos-orientacao-v1",
+      "title": "Orientação geral sobre contratos",
+      "sourceUrl": "https://www.newsun.energy/",
+      "department": "juridico",
+      "visibility": "public",
+      "approvedBy": "PENDENTE_APROVACAO_CMO_JURIDICO",
+      "approvedAt": "",
+      "content": "O assistente pode explicar conceitos contratuais gerais e indicar como encaminhar um documento por canal seguro. Ele não emite parecer jurídico, não interpreta cláusula particular e não confirma direitos, obrigações, multas, reajustes ou rescisões sem a versão vigente e o contexto do caso. Dados contratuais individuais são tratados apenas por equipes autorizadas. Solicitações regulatórias, de privacidade ou de compliance devem ser registradas e encaminhadas ao Jurídico."
+    },
+    {
+      "sourceId": "newsun-operacao-creditos-v1",
+      "title": "Funcionamento geral dos créditos de energia",
+      "sourceUrl": "https://www.newsun.energy/",
+      "department": "operacoes",
+      "visibility": "public",
+      "approvedBy": "PENDENTE_APROVACAO_CMO_JURIDICO",
+      "approvedAt": "",
+      "content": "Créditos de energia dependem da geração, dos processos operacionais, das regras aplicáveis e da atuação da distribuidora. O assistente pode explicar o conceito, mas não confirma data de início, volume de crédito, previsão individual ou causa de atraso sem consultar o caso. Problemas operacionais, ausência de créditos, divergência de demonstrativo ou status de implantação devem ser encaminhados à equipe técnica ou de Customer Success com protocolo e rastreabilidade."
+    },
+    {
+      "sourceId": "newsun-parcerias-publico-v1",
+      "title": "Canais e parcerias NewSun",
+      "sourceUrl": "https://www.newsun.energy/",
+      "department": "parcerias",
+      "visibility": "public",
+      "approvedBy": "PENDENTE_APROVACAO_CMO_JURIDICO",
+      "approvedAt": "",
+      "content": "A área de Parcerias orienta administradoras de condomínios, síndicos, profissionais e organizações interessadas em programas e canais NewSun. O enquadramento correto depende do perfil, da carteira, da região, da capacidade de atuação e das regras vigentes de cada programa. Materiais, promessas, comissionamento, elegibilidade e uso de marca devem seguir documentos oficiais. O assistente não aprova parceria nem confirma condição comercial; ele identifica o caminho inicial e encaminha o contato para análise."
+    },
+    {
+      "sourceId": "newsun-imprensa-publico-v1",
+      "title": "Solicitações institucionais, eventos e imprensa",
+      "sourceUrl": "https://www.newsun.energy/",
+      "department": "imprensa",
+      "visibility": "public",
+      "approvedBy": "PENDENTE_APROVACAO_CMO_JURIDICO",
+      "approvedAt": "",
+      "content": "Informações institucionais públicas podem ser compartilhadas no tom oficial da marca. Convites para eventos, entrevistas, pedidos de dados, posicionamentos e solicitações de imprensa devem ser encaminhados à Comunicação. O assistente não fala em nome da liderança em temas sensíveis, não comenta incidentes, não especula e não atribui culpa. Em situação de possível crise ou alta repercussão, o encaminhamento é prioritário e a resposta externa cabe apenas aos porta-vozes autorizados."
+    },
+    {
+      "sourceId": "newsun-pessoas-fornecedores-v1",
+      "title": "Carreiras, fornecedores e assuntos administrativos",
+      "sourceUrl": "https://www.newsun.energy/",
+      "department": "pessoas",
+      "visibility": "public",
+      "approvedBy": "PENDENTE_APROVACAO_CMO_JURIDICO",
+      "approvedAt": "",
+      "content": "Candidatos, fornecedores e prestadores podem receber orientação sobre o canal de entrada adequado. O assistente não expõe telefone pessoal, e-mail privado, agenda, remuneração ou dado de colaborador. Currículos, propostas e documentos devem ser enviados apenas pelos canais oficiais indicados pela área responsável. Cadastro de fornecedor, contratação e processo seletivo dependem de avaliação humana e não são aprovados pelo chat."
+    }
+  ]
+}
