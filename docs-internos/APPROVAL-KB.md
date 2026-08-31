@@ -46,6 +46,31 @@ Recomenda-se validade explícita:
 6. rodar perguntas de regressão;
 7. registrar a mudança no Bitrix.
 
+## Módulo comercial e transcrições de ligação
+
+O departamento Comercial usa um módulo de venda consultiva (`COMMERCIAL_SALES_MODULE` em
+`worker/src/constants.js`, adaptado do material interno "Prometheus Sales Titan") com técnicas de
+tratamento de objeção (ACLARA), clareza de percepção e redução de pressão — sempre subordinado às
+REGRAS INEGOCIÁVEIS do prompt principal: nunca inventa número, nunca promete condição, sempre
+qualifica estimativa como estimativa.
+
+**Transcrição de ligação real não entra na base pública.** Ela contém nome, telefone, e-mail,
+valor de conta e às vezes dado bancário do cliente — o mesmo motivo pelo qual e-mail, WhatsApp e
+comentário de tarefa do Bitrix nunca são ingeridos crus (regra permanente deste projeto, seção
+acima). O caminho correto para aproveitar o que as ligações ensinam sobre fechamento é:
+
+1. localizar os padrões recorrentes de objeção nas transcrições já existentes na base única
+   (`node _base-unica/consultar.mjs buscar "objeção"` ou similar, fora deste repositório);
+2. **generalizar**: extrair o padrão da objeção ("está caro", "preciso falar com o financeiro") sem
+   nome, telefone, valor de conta ou qualquer dado que identifique quem ligou;
+3. redigir a resposta correta em `knowledge/public/seed-public.json`, passando pelo mesmo checklist
+   de aprovação desta página;
+4. rodar `npm run ingest` normalmente.
+
+A entrada `newsun-objecoes-comerciais-comuns-v1` já traz as cinco objeções mais comuns do roteiro
+comercial (preço, timing, decisão compartilhada, experiência anterior ruim, dúvida sobre
+mercado livre/GD) tratadas de forma genérica — sirva de modelo para as próximas.
+
 ## Regra brutalmente simples
 
 Se houver dúvida sobre ser público, é interno. Não ingira.

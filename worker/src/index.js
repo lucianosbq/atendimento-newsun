@@ -1,6 +1,7 @@
 import { DEPARTMENTS } from "./constants.js";
 import { cleanupExpiredData, createHandoff, getHandoffStatus, updateWhatsAppStatuses } from "./handoff.js";
-import { createChatSession } from "./session.js";
+import { createChatSession, markSessionAbandoned } from "./session.js";
+import { handleAccountUpload, handleFileDownload } from "./upload.js";
 import { answerPublicChat } from "./llm.js";
 import { ingestPublicDocument } from "./rag.js";
 import {
@@ -75,6 +76,48 @@ async function route(request, env, ctx) {
     const input = await readJson(request, 16_000);
     const result = await createChatSession({ request, env, input });
     return json(result, 201);
+  }
+
+  if (method === "POST" && url.pathname === "/v1/session/abandon") {
+    // Chega por navigator.sendBeacon (text/plain, sem preflight). Sempre
+    // responde ok para não revelar se o token existe.
+    assertOriginAllowed(request, env);
+    const rate = await enforceRateLimit({
+      request,
+      env,
+      scope: "abandon",
+      limit: 30,
+      windowSeconds: 600,
+    });
+    if (!rate.allowed) return json({ ok: true });
+    const input = await readJson(request, 2000).catch(() => ({}));
+    ctx.waitUntil(markSessionAbandoned(env, input?.sessionToken).catch(() => null));
+    return json({ ok: true });
+  }
+
+  if (method === "POST" && url.pathname === "/v1/upload") {
+    assertOriginAllowed(request, env);
+    const rate = await enforceRateLimit({
+      request,
+      env,
+      scope: "upload",
+      limit: clampInt(env.UPLOAD_RATE_LIMIT, 10, 1, 60),
+      windowSeconds: clampInt(env.UPLOAD_RATE_WINDOW_SECONDS, 3600, 60, 86_400),
+    });
+    if (!rate.allowed) {
+      throw new HttpError(429, "Muitos envios de arquivo. Aguarde alguns minutos.", "rate_limited", {
+        retryAfter: rate.retryAfter,
+      });
+    }
+    const result = await handleAccountUpload({ request, env });
+    return json(result, 201);
+  }
+
+  if (method === "GET" && url.pathname.startsWith("/v1/file/")) {
+    // Aberto pelo funcionário a partir do link no card do Bitrix; o token HMAC
+    // na query é a proteção — navegação direta não envia Origin.
+    const uploadId = url.pathname.slice("/v1/file/".length);
+    return handleFileDownload(env, uploadId, url.searchParams.get("t"));
   }
 
   if (method === "POST" && url.pathname === "/v1/chat") {

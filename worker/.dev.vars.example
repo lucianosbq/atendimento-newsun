@@ -11,7 +11,9 @@ META_APP_SECRET=
 META_WEBHOOK_VERIFY_TOKEN=
 
 # Rotas privadas por departamento; NÃO colocar no frontend.
-DEPARTMENT_ROUTES_JSON={"comercial":{"label":"Comercial","employeeName":"Equipe Comercial","employeeWhatsApp":"5511999999999","bitrixAssignedById":"123"},"atendimento":{"label":"Clientes e CS","employeeName":"Equipe de CS","employeeWhatsApp":"5511999999999","bitrixAssignedById":"456"}}
+# bitrixUserId recebe a notificação pelo mensageiro do Bitrix (im.notify.system.add);
+# quando omitido, usa o mesmo valor de bitrixAssignedById.
+DEPARTMENT_ROUTES_JSON={"comercial":{"label":"Comercial","employeeName":"Equipe Comercial","employeeWhatsApp":"5511999999999","bitrixAssignedById":"123","bitrixUserId":"123"},"atendimento":{"label":"Clientes e CS","employeeName":"Equipe de CS","employeeWhatsApp":"5511999999999","bitrixAssignedById":"456","bitrixUserId":"456"}}
 
 # Integrações opcionais
 BITRIX_WEBHOOK_URL=

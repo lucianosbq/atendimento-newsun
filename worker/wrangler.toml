@@ -19,6 +19,10 @@ migrations_dir = "migrations"
 binding = "VECTORIZE"
 index_name = "newsun-public-knowledge"
 
+[[r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "newsun-atendimento-uploads"
+
 [vars]
 ENVIRONMENT = "production"
 ALLOWED_ORIGINS = "https://SEU-USUARIO.github.io,https://atendimento.newsun.energy"
@@ -32,6 +36,8 @@ HANDOFF_RATE_LIMIT = "5"
 HANDOFF_RATE_WINDOW_SECONDS = "3600"
 SESSION_RATE_LIMIT = "8"
 SESSION_RATE_WINDOW_SECONDS = "3600"
+UPLOAD_RATE_LIMIT = "10"
+UPLOAD_RATE_WINDOW_SECONDS = "3600"
 BUSINESS_HOURS_START = "08:00"
 BUSINESS_HOURS_END = "18:00"
 BUSINESS_DAYS = "1,2,3,4,5"

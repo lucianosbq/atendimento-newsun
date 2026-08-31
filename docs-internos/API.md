@@ -33,7 +33,7 @@ Resposta HTTP 201:
 ```json
 {
   "ok": true,
-  "protocol": "NS-20260830-AB12CD34",
+  "protocol": "NS-20260830-482913",
   "sessionToken": "sess_uuid_secreto",
   "department": "comercial",
   "departmentLabel": "Comercial",
@@ -105,7 +105,7 @@ Resposta HTTP 201:
 ```json
 {
   "ok": true,
-  "ticketId": "NS-20260830-AB12CD34",
+  "ticketId": "NS-20260830-482913",
   "statusToken": "status_uuid_secreto",
   "employeeNotified": false,
   "notificationAccepted": true,
@@ -116,6 +116,39 @@ Resposta HTTP 201:
 ```
 
 
+## `POST /v1/upload`
+
+`multipart/form-data` com `sessionToken` e `file` (PDF, JPG ou PNG, até 8 MB). Guarda o arquivo no
+R2, anexa o link seguro na linha do tempo do card do Bitrix e notifica o funcionário pelo
+mensageiro, quando dentro do expediente.
+
+Resposta HTTP 201:
+
+```json
+{
+  "ok": true,
+  "fileId": "up_...",
+  "filename": "conta-luz-agosto.pdf",
+  "message": "Conta recebida com sucesso..."
+}
+```
+
+## `GET /v1/file/:id?t=<token>`
+
+Download do arquivo pelo funcionário, a partir do link gravado no card. Protegido por token HMAC
+(não por Origin — é aberto direto no navegador). Expira junto com a retenção do atendimento.
+
+## `POST /v1/session/abandon`
+
+Enviado por `navigator.sendBeacon` quando o visitante fecha a aba ou some por mais de 3 minutos sem
+concluir o handoff. Registra no card do Bitrix que a interação bidirecional pela tela não é mais
+possível e que o contato deve seguir por WhatsApp ou e-mail. Idempotente; sempre responde `{"ok":
+true}`, mesmo com token inválido, para não revelar se a sessão existe.
+
+```json
+{ "sessionToken": "sess_uuid_secreto" }
+```
+
 ## `GET /v1/handoff/status?ticket=...&token=...`
 
 Consulta somente o estado de entrega da notificação, sem retornar PII. O frontend faz polling e só libera a mensagem **“Você pode fechar esta página”** quando o webhook Meta indicar `delivered`/`read` ou quando o n8n responder `notified: true` após concluir a notificação humana.
@@ -123,7 +156,7 @@ Consulta somente o estado de entrega da notificação, sem retornar PII. O front
 ```json
 {
   "ok": true,
-  "ticketId": "NS-20260830-AB12CD34",
+  "ticketId": "NS-20260830-482913",
   "employeeNotified": true,
   "failed": false,
   "notificationState": "delivered",

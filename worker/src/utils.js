@@ -87,10 +87,16 @@ export function randomId(prefix = "") {
 }
 
 export function generateProtocol() {
-  const date = new Date();
-  const ymd = [date.getUTCFullYear(), String(date.getUTCMonth() + 1).padStart(2, "0"), String(date.getUTCDate()).padStart(2, "0")].join("");
-  const random = crypto.randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase();
-  return `NS-${ymd}-${random}`;
+  // Formato oficial: NS-DATA-NÚMERO com 6 dígitos (ex.: NS-20260830-482913).
+  // Data no fuso de Brasília (-03:00) para o protocolo bater com o dia do atendimento.
+  const local = new Date(Date.now() - 180 * 60_000);
+  const ymd = [
+    local.getUTCFullYear(),
+    String(local.getUTCMonth() + 1).padStart(2, "0"),
+    String(local.getUTCDate()).padStart(2, "0"),
+  ].join("");
+  const random = crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000;
+  return `NS-${ymd}-${String(random).padStart(6, "0")}`;
 }
 
 export async function sha256Hex(value) {

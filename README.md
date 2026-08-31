@@ -21,8 +21,19 @@ para WhatsApp, desenhada para **responder primeiro e encaminhar só quando neces
 - WhatsApp Cloud API para notificar o setor e confirmar ao visitante;
 - integração opcional com **Bitrix24 e n8n**;
 - webhook Meta para `sent`, `delivered`, `read` e `failed`, com polling seguro no frontend;
-- retenção e limpeza automática;
-- 20 testes automatizados.
+- **envio da conta de energia pelo clipe do chat** (PDF, JPG ou PNG, até 8 MB), guardada no
+  Cloudflare R2 e anexada como link seguro na linha do tempo do card no Bitrix;
+- **simulação de economia por valor mensal informado**, para quem não tem a conta em mãos —
+  sempre como estimativa declarada, nunca como promessa fechada;
+- **detecção de abandono da tela** (fechar a aba ou ficar 3 minutos sem interagir): grava no card
+  que a mensageria bidirecional pelo site não é mais possível e que o contato deve seguir por
+  WhatsApp ou e-mail;
+- **protocolo no formato `NS-AAAAMMDD-NNNNNN`** (6 dígitos), gerado já na abertura da conversa;
+- **logo oficial NewSun Energy Group** (não é mais placeholder) no cabeçalho, favicon e avatar do chat;
+- **expediente humano fixo em segunda a sexta, 8h às 18h** (fuso de Brasília) — fora dele a IA
+  segue respondendo, mas avisa que o retorno humano só ocorre no próximo expediente;
+- retenção e limpeza automática (inclui os arquivos enviados no R2);
+- 24 testes automatizados.
 
 ## Jornada
 
@@ -80,7 +91,7 @@ npm test
 npm run check
 ```
 
-Resultado validado na entrega: **20/20 testes aprovados**.
+Resultado validado na entrega: **24/24 testes aprovados**.
 
 ## Implantação
 

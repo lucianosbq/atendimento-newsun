@@ -87,7 +87,10 @@
     pendingDepartment: "",
     flowData: {},
     flowAwaiting: null,
-    hotLeadPrompted: false
+    hotLeadPrompted: false,
+    handoffDone: false,
+    abandonSent: false,
+    hiddenTimer: null
   };
 
   const CONSENT_TEXT = "Autorizo a NewSun a usar estes dados para registrar o atendimento e entrar em contato comigo pelo WhatsApp sobre esta solicitação.";
@@ -169,15 +172,30 @@
           ]
         },
         conta_energia: {
-          text: () => "Perfeito, chegamos à etapa mais importante. Para calcular a economia real e confirmar a elegibilidade, precisamos apenas de uma conta recente de energia (PDF ou foto). Nossa equipe usa a conta exclusivamente para analisar perfil de consumo, distribuidora e tarifa atual. Por segurança, o envio é feito direto no WhatsApp com o especialista — posso acionar o time agora para você mandar a conta por lá?",
+          text: () => "Perfeito, chegamos à etapa mais importante. Para calcular a economia real e confirmar a elegibilidade, preciso de uma conta recente de energia — use o clipe 📎 aqui embaixo para enviar em PDF, JPG ou PNG. A equipe usa a conta exclusivamente para analisar perfil de consumo, distribuidora e tarifa. Se não estiver com ela agora, posso fazer uma simulação rápida só com o valor mensal.",
           options: [
-            { label: "Sim, falar com o especialista", action: "handoff", reason: "Lead qualificado no fluxo comercial pronto para enviar a conta de energia" },
-            { label: "Não estou com ela agora", next: "sem_conta" }
+            { label: "📎 Enviar a conta agora (PDF, JPG ou PNG)", action: "clip" },
+            { label: "Informar o valor mensal da conta", next: "valor_conta" },
+            { label: "Falar direto com o especialista", action: "handoff", reason: "Lead qualificado no fluxo comercial pronto para enviar a conta de energia" }
+          ]
+        },
+        valor_conta: {
+          text: () => "Combinado. Qual é o valor médio mensal da conta de luz — da área comum do seu condomínio ou, se for empresa, da conta mensal da unidade? Pode escrever só o número, por exemplo: 4500.",
+          expectInput: "valorConta",
+          next: "simulacao"
+        },
+        simulacao: {
+          text: (d, p) => buildSimulationText(d, p),
+          options: [
+            { label: "Quero essa economia — falar com o especialista", action: "handoff", reason: "Simulação de economia apresentada — visitante quer avançar" },
+            { label: "📎 Enviar a conta para o cálculo exato", action: "clip" },
+            { label: "Tenho outra dúvida", action: "free" }
           ]
         },
         sem_conta: {
-          text: (d, p) => `Sem problema, ${firstName(p)}. Sua análise já ficou pré-cadastrada com o seu protocolo. Quando tiver a conta em mãos, é só falar com o especialista e enviar pelo WhatsApp — sem repetir o cadastro. Quer que eu acione o time mesmo assim?`,
+          text: (d, p) => `Sem problema, ${firstName(p)}. Sua análise já ficou pré-cadastrada com o seu protocolo. Se quiser, faço agora uma simulação só com o valor mensal da conta — ou aciono o time e você envia a conta depois pelo WhatsApp, sem repetir o cadastro.`,
           options: [
+            { label: "Informar o valor mensal da conta", next: "valor_conta" },
             { label: "Sim, acionar o especialista", action: "handoff", reason: "Pré-cadastro comercial sem conta de energia — visitante pediu contato" },
             { label: "Tenho outra dúvida", action: "free" }
           ]
@@ -324,6 +342,18 @@
     }
   });
 
+  function makeAvatar() {
+    const avatar = document.createElement("span");
+    avatar.className = "avatar";
+    avatar.setAttribute("aria-hidden", "true");
+    const img = document.createElement("img");
+    img.src = "./assets/simbolo-newsun.png";
+    img.alt = "";
+    img.className = "avatar-img";
+    avatar.append(img);
+    return avatar;
+  }
+
   function firstName(profile) {
     return String(profile?.name || "").trim().split(/\s+/)[0] || "olá";
   }
@@ -337,6 +367,8 @@
     suggestions: byId("suggestions"),
     form: byId("chat-form"),
     input: byId("message-input"),
+    attach: byId("attach-button"),
+    fileInput: byId("file-input"),
     send: byId("send-button"),
     human: byId("human-button"),
     back: byId("back-button"),
@@ -414,6 +446,26 @@
     els.intakeForm.addEventListener("submit", handleIntakeSubmit);
     els.intakePhone.addEventListener("input", () => maskPhoneField(els.intakePhone));
 
+    // Abandono da tela: ao sair da página (ou ficar 3 minutos com a aba
+    // escondida), avisa o backend para registrar no card do Bitrix que o
+    // contato agora só é possível por WhatsApp ou e-mail.
+    els.attach.addEventListener("click", () => els.fileInput.click());
+    els.fileInput.addEventListener("change", () => {
+      const file = els.fileInput.files?.[0];
+      els.fileInput.value = "";
+      if (file) void uploadAccountFile(file);
+    });
+
+    window.addEventListener("pagehide", sendAbandonBeacon);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") {
+        state.hiddenTimer = setTimeout(sendAbandonBeacon, 180000);
+      } else if (state.hiddenTimer) {
+        clearTimeout(state.hiddenTimer);
+        state.hiddenTimer = null;
+      }
+    });
+
     els.privacyButton.addEventListener("click", () => els.privacyDialog.showModal());
     els.closePrivacy.addEventListener("click", () => els.privacyDialog.close());
     els.privacyOk.addEventListener("click", () => els.privacyDialog.close());
@@ -488,6 +540,12 @@
       els.protocolChip.hidden = false;
     }
 
+    if (state.session && state.session.withinBusinessHours === false) {
+      const aviso = "Estamos fora do horário de atendimento humano (segunda a sexta, das 8h às 18h). Posso responder suas dúvidas agora mesmo; se precisar de uma pessoa, o setor recebe sua solicitação com protocolo e retorna no próximo expediente.";
+      addMessage("assistant", aviso);
+      state.history.push({ role: "assistant", content: aviso });
+    }
+
     const flow = FLOWS[department.id];
     if (flow) {
       runFlowStep(flow.steps[flow.start]);
@@ -551,6 +609,10 @@
     }
     if (option.action === "handoff") {
       openHandoff(buildFlowReason(option.reason));
+      return;
+    }
+    if (option.action === "clip") {
+      els.fileInput.click();
       return;
     }
     if (option.action === "ask") {
@@ -631,8 +693,14 @@
 
       if (!response.ok) throw new Error(response.error || "Não foi possível iniciar o atendimento.");
 
-      state.session = { token: response.sessionToken, protocol: response.protocol };
+      state.session = {
+        token: response.sessionToken,
+        protocol: response.protocol,
+        withinBusinessHours: response.withinBusinessHours !== false
+      };
       state.profile = { name, email, phone, phoneDisplay };
+      state.abandonSent = false;
+      state.handoffDone = false;
       els.intakeDialog.close();
       enterChat(state.pendingDepartment);
     } catch (error) {
@@ -643,6 +711,90 @@
     }
   }
 
+  function buildSimulationText(flowData, profile) {
+    const raw = String(flowData.valorConta || "")
+      .replace(/[Rr]\$\s*/g, "")
+      .replace(/\./g, "")
+      .replace(",", ".")
+      .replace(/[^\d.]/g, "");
+    const valor = Number.parseFloat(raw);
+    if (!Number.isFinite(valor) || valor < 100 || valor > 10000000) {
+      return "Não consegui interpretar o valor informado. De todo modo, com a conta de energia em mãos o cálculo sai exato — e o especialista confirma a elegibilidade da sua unidade.";
+    }
+    const brl = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+    const mensal = valor * 0.3;
+    const anual = mensal * 12;
+    return `${firstName(profile)}, com uma conta média de ${brl(valor)} por mês, sua economia pode chegar a ${brl(mensal)} por mês — até ${brl(anual)} por ano, considerando o teto de 30% do programa. É uma estimativa inicial: o número exato depende da análise da conta, da distribuidora e da elegibilidade da unidade. Chega de deixar dinheiro na mesa todos os meses — quer avançar?`;
+  }
+
+  async function uploadAccountFile(file) {
+    if (!state.department || state.busy) return;
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      addMessage("assistant", "Formato não aceito. Envie a conta em PDF, JPG ou PNG.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      addMessage("assistant", "O arquivo passa de 8 MB. Envie uma foto menor ou o PDF original da conta.");
+      return;
+    }
+    if (!state.session) {
+      addMessage("assistant", "Conclua o cadastro inicial para anexar a conta ao seu protocolo.");
+      return;
+    }
+
+    const sizeKb = Math.max(1, Math.round(file.size / 1024));
+    addMessage("user", `📎 ${file.name} (${sizeKb} KB)`);
+    state.history.push({ role: "user", content: `Enviei minha conta de energia em anexo (${file.name}).` });
+    trimHistory();
+    els.suggestions.replaceChildren();
+    const typing = addTypingMessage();
+
+    try {
+      let response;
+      if (config.demoMode) {
+        await delay(900);
+        response = { ok: true, message: "Conta recebida com sucesso (simulação — nenhum arquivo real foi transmitido). Ela ficaria anexada ao seu protocolo para a análise de consumo, distribuidora e tarifa." };
+      } else {
+        const base = String(config.apiBaseUrl || "").replace(/\/$/, "");
+        if (!base || base.includes("SEU-SUBDOMINIO")) throw new Error("A URL da API ainda não foi configurada.");
+        const formData = new FormData();
+        formData.set("sessionToken", state.session.token);
+        formData.set("file", file, file.name);
+        const res = await fetch(`${base}/v1/upload`, { method: "POST", body: formData, credentials: "omit" });
+        response = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(response.error || `Falha no envio do arquivo (${res.status}).`);
+      }
+
+      typing.remove();
+      state.flowData.contaEnviada = true;
+      const confirmation = `${response.message || "Conta recebida com sucesso."} Posso acionar o especialista agora para concluir a análise?`;
+      addMessage("assistant", confirmation);
+      state.history.push({ role: "assistant", content: confirmation });
+      trimHistory();
+      renderFlowOptions([
+        { label: "Sim, falar com o especialista", action: "handoff", reason: "Conta de energia enviada pelo site — pronta para análise e proposta" },
+        { label: "Tenho outra dúvida antes", action: "free" }
+      ]);
+    } catch (error) {
+      typing.remove();
+      console.error(error);
+      addMessage("assistant", error.message || "Não foi possível enviar o arquivo. Tente novamente ou peça o atendimento humano.");
+    }
+  }
+
+  function sendAbandonBeacon() {
+    if (!state.session || state.handoffDone || state.abandonSent || config.demoMode) return;
+    const base = String(config.apiBaseUrl || "").replace(/\/$/, "");
+    if (!base || base.includes("SEU-SUBDOMINIO")) return;
+    state.abandonSent = true;
+    try {
+      // text/plain evita preflight; sendBeacon sobrevive ao fechamento da aba.
+      const body = new Blob([JSON.stringify({ sessionToken: state.session.token })], { type: "text/plain" });
+      navigator.sendBeacon(`${base}/v1/session/abandon`, body);
+    } catch (_) { /* melhor esforço */ }
+  }
+
   function showIntakeError(message) {
     els.intakeError.textContent = message;
     els.intakeError.hidden = false;
@@ -650,14 +802,20 @@
 
   async function demoSessionResponse(payload) {
     await delay(700);
-    const suffix = crypto.randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase();
+    const ymd = new Date(Date.now() - 180 * 60000).toISOString().slice(0, 10).replaceAll("-", "");
+    const numero = String(Math.floor(Math.random() * 1000000)).padStart(6, "0");
     return {
       ok: true,
-      protocol: `NS-DEMO-${suffix}`,
+      protocol: `NS-${ymd}-${numero}`,
       sessionToken: "demo-session-token",
       departmentLabel: getDepartment(payload.department)?.label || "",
       bitrixCardCreated: false,
-      withinBusinessHours: true
+      withinBusinessHours: (() => {
+        const agora = new Date();
+        const dia = agora.getDay();
+        const hora = agora.getHours();
+        return dia >= 1 && dia <= 5 && hora >= 8 && hora < 18;
+      })()
     };
   }
 
@@ -794,10 +952,7 @@
     wrapper.className = `message ${role}`;
 
     if (role === "assistant") {
-      const avatar = document.createElement("span");
-      avatar.className = "avatar";
-      avatar.textContent = "NS";
-      avatar.setAttribute("aria-hidden", "true");
+      const avatar = makeAvatar();
       wrapper.append(avatar);
     }
 
@@ -837,10 +992,7 @@
     const wrapper = document.createElement("article");
     wrapper.className = "message assistant";
 
-    const avatar = document.createElement("span");
-    avatar.className = "avatar";
-    avatar.textContent = "NS";
-    avatar.setAttribute("aria-hidden", "true");
+    const avatar = makeAvatar();
 
     const bubble = document.createElement("div");
     bubble.className = "bubble";
@@ -860,10 +1012,7 @@
     const wrapper = document.createElement("article");
     wrapper.className = "message assistant";
 
-    const avatar = document.createElement("span");
-    avatar.className = "avatar";
-    avatar.textContent = "NS";
-    avatar.setAttribute("aria-hidden", "true");
+    const avatar = makeAvatar();
 
     const bubble = document.createElement("div");
     bubble.className = "bubble";
@@ -974,6 +1123,7 @@
 
       if (!response.ok) throw new Error(response.error || "Não foi possível registrar o atendimento.");
 
+      state.handoffDone = true;
       els.handoffDialog.close();
       els.protocolNumber.textContent = response.ticketId || "PROTOCOLO PENDENTE";
       showOnly(els.successView);
@@ -1129,6 +1279,8 @@
     state.flowData = {};
     state.flowAwaiting = null;
     state.hotLeadPrompted = false;
+    state.handoffDone = false;
+    state.abandonSent = false;
     els.protocolChip.hidden = true;
     els.protocolChip.textContent = "";
     els.intakeForm.reset();

@@ -8,7 +8,7 @@ test("cleanText normaliza espaços e limita tamanho", () => {
 });
 
 test("generateProtocol usa formato rastreável sem PII", () => {
-  assert.match(generateProtocol(), /^NS-\d{8}-[A-F0-9]{8}$/);
+  assert.match(generateProtocol(), /^NS-\d{8}-\d{6}$/);
 });
 
 test("sha256Hex é determinístico", async () => {

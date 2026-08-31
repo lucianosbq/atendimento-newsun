@@ -7,6 +7,7 @@
   <meta name="description" content="Atendimento inteligente NewSun Energy — respostas claras e encaminhamento humano por WhatsApp.">
   <meta name="robots" content="index,follow">
   <title>Atendimento Inteligente | NewSun Energy</title>
+  <link rel="icon" type="image/png" href="./assets/simbolo-newsun.png">
   <link rel="stylesheet" href="./styles.css">
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="./config.js" defer></script>
@@ -19,10 +20,9 @@
   <div class="ambient ambient-two" aria-hidden="true"></div>
 
   <header class="site-header">
-    <div class="brand" aria-label="NewSun Energy">
-      <span class="brand-monogram" aria-hidden="true">NS</span>
+    <div class="brand" aria-label="NewSun Energy Group">
+      <img class="brand-logo" src="./assets/logo-newsun.png" alt="NewSun Energy Group">
       <span class="brand-copy">
-        <strong>NewSun</strong>
         <small>Atendimento inteligente</small>
       </span>
     </div>
@@ -93,6 +93,8 @@
           <div id="suggestions" class="suggestions" aria-label="Sugestões de perguntas"></div>
 
           <form id="chat-form" class="composer" autocomplete="off">
+            <input id="file-input" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" hidden>
+            <button id="attach-button" class="attach-button" type="button" aria-label="Enviar conta de energia (PDF, JPG ou PNG)" title="Enviar conta de energia (PDF, JPG ou PNG)">📎</button>
             <label class="sr-only" for="message-input">Digite sua dúvida</label>
             <textarea
               id="message-input"

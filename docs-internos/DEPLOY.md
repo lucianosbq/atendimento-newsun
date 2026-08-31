@@ -1,8 +1,12 @@
 # Implantação — NewSun Atendimento IA
 
-## Identidade visual antes da publicação
+## Identidade visual
 
-O frontend usa um monograma textual `NS` apenas como placeholder técnico. Antes do go-live, substitua-o pelo arquivo oficial de logo aprovado no brandbook, sem redesenhar, recolorir ou alterar proporções.
+O frontend já usa a logo oficial `NewSun Energy Group` (`docs/assets/logo-newsun.png`, versão
+amarelo-laranja para fundo escuro) e o símbolo isolado da bússola como favicon e avatar do chat
+(`docs/assets/simbolo-newsun.png`), ambos copiados de
+`05-DEPARTAMENTO-MARKETING-IA/identidade-visual/logos-oficiais/png-web/`. Se o brandbook for
+atualizado, troque os dois arquivos mantendo o mesmo nome — nenhuma outra alteração é necessária.
 
 ## 1. O que já está pronto
 
@@ -31,11 +35,13 @@ npm install
 npx wrangler login
 npx wrangler d1 create newsun-atendimento
 npx wrangler vectorize create newsun-public-knowledge --dimensions=1024 --metric=cosine
+npx wrangler r2 bucket create newsun-atendimento-uploads
 ```
 
 Copie o `database_id` retornado pelo D1 e substitua `REPLACE_WITH_D1_DATABASE_ID` em
 `worker/wrangler.toml`. O modelo BGE-M3 usado neste projeto produz vetores de 1024 dimensões; não
-crie o índice com outra dimensão.
+crie o índice com outra dimensão. O bucket R2 guarda as contas de energia enviadas pelo clipe do
+chat (PDF/JPG/PNG); o binding `UPLOADS` já está declarado no `wrangler.toml`.
 
 Aplique a migração:
 
@@ -288,7 +294,12 @@ Execute pelo menos estes cenários:
 11. webhook atualiza `delivered/read/failed`;
 12. origem não autorizada recebe HTTP 403;
 13. documento interno é recusado na ingestão;
-14. expiração remove PII após o prazo definido.
+14. expiração remove PII após o prazo definido;
+15. envio de conta em PDF/JPG/PNG pelo clipe anexa o link seguro ao card do Bitrix;
+16. arquivo fora do formato ou acima de 8 MB é recusado com mensagem clara;
+17. simulação por valor mensal aparece só como estimativa, nunca como promessa;
+18. fechar a aba sem concluir o handoff registra o aviso de "só WhatsApp/e-mail" no card;
+19. fora do expediente (fora de seg–sex 08h–18h) o visitante recebe o aviso e a IA segue respondendo.
 
 ## 15. Go-live: bloqueios reais
 

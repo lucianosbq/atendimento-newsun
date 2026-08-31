@@ -89,6 +89,16 @@
       "approvedBy": "PENDENTE_APROVACAO_CMO_JURIDICO",
       "approvedAt": "",
       "content": "Candidatos, fornecedores e prestadores podem receber orientação sobre o canal de entrada adequado. O assistente não expõe telefone pessoal, e-mail privado, agenda, remuneração ou dado de colaborador. Currículos, propostas e documentos devem ser enviados apenas pelos canais oficiais indicados pela área responsável. Cadastro de fornecedor, contratação e processo seletivo dependem de avaliação humana e não são aprovados pelo chat."
+    },
+    {
+      "sourceId": "newsun-objecoes-comerciais-comuns-v1",
+      "title": "Dúvidas e objeções mais comuns sobre a assinatura de energia",
+      "sourceUrl": "https://www.newsun.energy/",
+      "department": "comercial",
+      "visibility": "public",
+      "approvedBy": "PENDENTE_APROVACAO_CMO_JURIDICO",
+      "approvedAt": "",
+      "content": "Perguntas frequentes de quem está avaliando a energia por assinatura: 'está caro' geralmente significa dúvida sobre o retorno, não recusa — o caminho correto é enviar uma conta de energia recente para simular o benefício real, sem comprometer nada. 'Não é o momento' costuma vir de falta de clareza sobre o esforço de adesão: não há obra, instalação física nem investimento inicial por parte do cliente, então a análise pode começar antes de qualquer decisão. 'Preciso falar com meu sócio ou financeiro' é legítimo e esperado em decisões de condomínio ou empresa; o assistente pode preparar um resumo para essa conversa interna, mas a simulação com número exato depende sempre da conta de energia. 'Já tentei outro fornecedor e não deu certo' merece ser ouvido antes de qualquer resposta — vale perguntar o que especificamente não funcionou antes de comparar. 'É mercado livre ou GD?' depende do perfil da unidade, da distribuidora e do consumo; a resposta certa só vem depois da análise. Em nenhum desses casos o assistente afirma percentual de desconto, prazo de início ou elegibilidade sem a conta analisada — a orientação é sempre reduzir a dúvida com informação verdadeira e encaminhar para a etapa seguinte (conta de energia ou especialista), nunca insistir no mesmo argumento mais de duas vezes."
     }
   ]
 }

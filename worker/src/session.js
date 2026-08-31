@@ -6,7 +6,7 @@ import {
   isBusinessHours,
   notifyBitrixMessenger,
 } from "./integrations.js";
-import { encryptJson, normalizeBrazilianPhone, verifyTurnstile } from "./security.js";
+import { decryptJson, encryptJson, normalizeBrazilianPhone, verifyTurnstile } from "./security.js";
 import {
   HttpError,
   addDaysIso,
@@ -27,7 +27,7 @@ export async function createChatSession({ request, env, input }) {
 
   await verifyTurnstile({ token: data.turnstileToken, request, env, idempotencyKey: data.requestId });
 
-  const protocol = generateProtocol();
+  let protocol = generateProtocol();
   const sessionToken = randomId("sess_");
   const sessionTokenHash = await hmacHex(env.RATE_LIMIT_SALT || "development-only-salt", sessionToken);
   const sessionRowId = randomId("cs_");
@@ -35,30 +35,39 @@ export async function createChatSession({ request, env, input }) {
   const retentionDays = Math.max(1, Math.min(365, Number(env.HANDOFF_RETENTION_DAYS) || 90));
   const departmentLabel = DEPARTMENTS[data.department].label;
 
-  const encrypted = await encryptJson(
-    { name: data.name, email: data.email, phone: data.phone },
-    env,
-    protocol
-  );
-
-  await env.DB.prepare(
-    `INSERT INTO chat_sessions
-     (id, protocol, session_token_hash, department, encrypted_payload, encryption_iv,
-      consent_at, consent_text_version, created_at, updated_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).bind(
-    sessionRowId,
-    protocol,
-    sessionTokenHash,
-    data.department,
-    encrypted.encryptedPayload,
-    encrypted.iv,
-    now,
-    env.CONSENT_TEXT_VERSION || "2026-08-30-v1",
-    now,
-    now,
-    addDaysIso(retentionDays)
-  ).run();
+  // Protocolo de 6 dígitos pode colidir no mesmo dia: até 3 tentativas.
+  let inserted = false;
+  for (let attempt = 0; attempt < 3 && !inserted; attempt += 1) {
+    if (attempt > 0) protocol = generateProtocol();
+    const encrypted = await encryptJson(
+      { name: data.name, email: data.email, phone: data.phone },
+      env,
+      protocol
+    );
+    try {
+      await env.DB.prepare(
+        `INSERT INTO chat_sessions
+         (id, protocol, session_token_hash, department, encrypted_payload, encryption_iv,
+          consent_at, consent_text_version, created_at, updated_at, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        sessionRowId,
+        protocol,
+        sessionTokenHash,
+        data.department,
+        encrypted.encryptedPayload,
+        encrypted.iv,
+        now,
+        env.CONSENT_TEXT_VERSION || "2026-08-30-v1",
+        now,
+        now,
+        addDaysIso(retentionDays)
+      ).run();
+      inserted = true;
+    } catch (error) {
+      if (attempt === 2) throw error;
+    }
+  }
 
   const route = getDepartmentRoute(env, data.department);
   const session = {
@@ -121,6 +130,69 @@ export async function findSessionByToken(env, sessionToken) {
      FROM chat_sessions WHERE session_token_hash = ? AND expires_at >= ?`
   ).bind(hash, nowIso()).first();
   return row || null;
+}
+
+// Visitante fechou/abandonou a tela sem concluir o handoff: registra no card
+// que o contato passa a ser por WhatsApp ou e-mail, porque a interação
+// bidirecional pela tela do site não é mais possível. Idempotente e silencioso
+// (não revela ao chamador se o token existe).
+export async function markSessionAbandoned(env, sessionToken) {
+  if (!env.DB) return { ok: true };
+  const token = cleanText(sessionToken, 160);
+  if (!token) return { ok: true };
+
+  const hash = await hmacHex(env.RATE_LIMIT_SALT || "development-only-salt", token);
+  const row = await env.DB.prepare(
+    `SELECT id, protocol, department, encrypted_payload, encryption_iv, bitrix_entity_id, abandoned_at
+     FROM chat_sessions WHERE session_token_hash = ? AND expires_at >= ?`
+  ).bind(hash, nowIso()).first();
+  if (!row?.id || row.abandoned_at) return { ok: true };
+
+  // Handoff já registrado para o protocolo: o contato já está encaminhado pelo
+  // canal humano — sair da tela é o comportamento esperado, não um abandono.
+  const handoff = await env.DB.prepare(
+    "SELECT id FROM handoffs WHERE protocol = ?"
+  ).bind(row.protocol).first();
+
+  const now = nowIso();
+  await env.DB.prepare(
+    "UPDATE chat_sessions SET abandoned_at = ?, updated_at = ? WHERE id = ?"
+  ).bind(now, now, row.id).run();
+  if (handoff?.id) return { ok: true };
+
+  let contact = { name: "", email: "", phone: "" };
+  try {
+    contact = await decryptJson(row.encrypted_payload, row.encryption_iv, env, row.protocol);
+  } catch {
+    // sem PII decifrável, o aviso sai mesmo assim, só sem os contatos
+  }
+
+  const departmentLabel = DEPARTMENTS[row.department]?.label || row.department;
+  const aviso = [
+    `⚠ Visitante saiu da tela do atendimento IA sem concluir o encaminhamento (${now}).`,
+    `A interação pela tela do site não está mais disponível — a mensageria bidirecional com este visitante não é mais possível.`,
+    `Faça o contato por WhatsApp ou e-mail:`,
+    contact.phone ? `WhatsApp: +${contact.phone} (wa.me/${contact.phone})` : null,
+    contact.email ? `E-mail: ${contact.email}` : null,
+    `Protocolo: ${row.protocol}`,
+  ].filter(Boolean).join("\n");
+
+  if (row.bitrix_entity_id) {
+    await addBitrixTimelineComment(env, { entityId: row.bitrix_entity_id, text: aviso }).catch(() => null);
+  }
+  const route = getDepartmentRoute(env, row.department);
+  await notifyBitrixMessenger(
+    env,
+    route,
+    [
+      `Visitante abandonou a tela — ${departmentLabel}`,
+      `Protocolo: ${row.protocol}`,
+      contact.name ? `Nome: ${contact.name}` : null,
+      `Contato agora só por WhatsApp${contact.phone ? ` (wa.me/${contact.phone})` : ""} ou e-mail${contact.email ? ` (${contact.email})` : ""}.`,
+    ].filter(Boolean).join("\n")
+  ).catch(() => null);
+
+  return { ok: true };
 }
 
 export async function appendSessionTimeline(env, sessionRow, text) {

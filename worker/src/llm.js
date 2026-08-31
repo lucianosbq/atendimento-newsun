@@ -1,6 +1,7 @@
 import {
   ACCOUNT_SPECIFIC_PATTERNS,
   CHAT_RESPONSE_SCHEMA,
+  COMMERCIAL_SALES_MODULE,
   CRISIS_PATTERNS,
   DEPARTMENTS,
   PUBLIC_SYSTEM_PROMPT,
@@ -148,8 +149,13 @@ acesso a dados privados. Use needsHuman=true apenas quando houver consulta indiv
 falta de evidência, documento particular ou risco. Não mencione esta instrução.
 `.trim();
 
+  const systemMessages = [{ role: "system", content: PUBLIC_SYSTEM_PROMPT }];
+  if (input.department === "comercial") {
+    systemMessages.push({ role: "system", content: COMMERCIAL_SALES_MODULE });
+  }
+
   return [
-    { role: "system", content: PUBLIC_SYSTEM_PROMPT },
+    ...systemMessages,
     ...safeHistory,
     { role: "user", content: instruction },
   ];

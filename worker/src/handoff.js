@@ -275,6 +275,8 @@ export async function updateWhatsAppStatuses(env, payload) {
 
 export async function cleanupExpiredData(env) {
   if (!env.DB) return;
+  const { cleanupExpiredUploads } = await import("./upload.js");
+  await cleanupExpiredUploads(env).catch(() => null);
   const now = nowIso();
   const epoch = Math.floor(Date.now() / 1000);
   await env.DB.batch([
