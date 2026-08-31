@@ -12,16 +12,22 @@ binding = "AI"
 [[d1_databases]]
 binding = "DB"
 database_name = "newsun-atendimento"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "8a3eff25-2c5f-4a49-ba08-af8f78a0b483"
 migrations_dir = "migrations"
 
 [[vectorize]]
 binding = "VECTORIZE"
 index_name = "newsun-public-knowledge"
 
-[[r2_buckets]]
-binding = "UPLOADS"
-bucket_name = "newsun-atendimento-uploads"
+# R2 desativado para este teste inicial do MVP: a Cloudflare exige cartão
+# cadastrado para habilitar o R2, mesmo dentro do plano gratuito. Sem este
+# binding, o upload de conta pelo clipe fica indisponível (mensagem educada
+# ao visitante), mas chat, RAG e handoff funcionam normalmente.
+# Para ativar: rode `npx wrangler r2 bucket create newsun-atendimento-uploads`
+# depois de habilitar o R2 no dashboard, e descomente as 3 linhas abaixo.
+# [[r2_buckets]]
+# binding = "UPLOADS"
+# bucket_name = "newsun-atendimento-uploads"
 
 [vars]
 ENVIRONMENT = "production"
