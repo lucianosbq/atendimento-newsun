@@ -140,33 +140,42 @@ notificação pelo **mensageiro do Bitrix** quando uma conversa começa ou um ha
 (quando omitido, usa o mesmo valor de `bitrixAssignedById`). Os IDs vêm da tabela de
 colaboradores do Bitrix24.
 
-Cadastre as oito rotas: `comercial`, `atendimento`, `financeiro`, `juridico`, `operacoes`,
-`parcerias`, `imprensa` e `pessoas`. Pode haver um número corporativo por setor ou uma central com
-roteamento no n8n. Não use telefone pessoal de colaborador.
+Cadastre as nove rotas: `comercial`, `atendimento`, `financeiro`, `juridico`, `operacoes`,
+`parcerias`, `imprensa`, `marketing` e `pessoas`. Pode haver um número corporativo por setor ou uma
+central com roteamento no n8n. Não use telefone pessoal de colaborador.
 
-### Estado atual (configurado em 31/08/2026)
+### Estado atual (corrigido em 31/08/2026)
 
-O `DEPARTMENT_ROUTES_JSON` já está cadastrado como secret no Worker, com `bitrixAssignedById` e
-`bitrixUserId` reais (IDs da tabela `pessoas` da base única) para os oito departamentos:
+O `DEPARTMENT_ROUTES_JSON` está cadastrado como secret no Worker, com `bitrixAssignedById` e
+`bitrixUserId` reais (IDs da tabela `pessoas` da base única) para os nove departamentos. **Os IDs
+cadastrados na primeira versão (51, 53, 49, 19, 6, 47, 41, 10) eram inválidos** — nenhum
+correspondia a uma pessoa real no Bitrix, e todo card criado nesse período ficou com "Pessoa
+responsável: Sem título". Corrigido depois de descobrir o problema testando um card real; os
+valores certos, batendo com a tabela `pessoas` da base única, são:
 
-| Departamento | Responsável | ID Bitrix |
+| Departamento | Responsável | ID Bitrix real |
 |---|---|---|
-| Comercial | Bruno Faustino | 51 |
-| Clientes e CS | Ricardo Gonçalves da Costa | 53 |
-| Financeiro | Maria Laura Silva | 49 |
-| Jurídico e contratos | Marcela Aleixo | 19 |
-| Operações técnicas | Lauane Trento | 6 |
-| Parcerias | Gabriela Raposo | 47 |
-| Institucional e imprensa | Bruna Anielle Oliveira | 41 |
-| Pessoas e fornecedores | Halide Santos | 10 |
+| Comercial | Bruno Faustino | 6643 |
+| Clientes e CS | Ricardo Gonçalves da Costa | 6739 |
+| Financeiro | Maria Laura Silva | 6547 |
+| Jurídico e contratos | Marcela Aleixo | 583 |
+| Operações técnicas | Lauane Trento | 123 |
+| Parcerias | Gabriela Raposo | 6483 |
+| Institucional e imprensa | Bruna Anielle Oliveira | 5863 |
+| **Marketing** | Maria Helena Silva | 667 |
+| Pessoas e fornecedores | Halide Santos | 229 |
+
+**Marketing é departamento próprio, separado de Institucional e imprensa** — decisão de
+31/08/2026 revertendo uma simplificação anterior que tinha unificado os dois sob a Bruna Anielle.
 
 `employeeWhatsApp` ficou vazio para todos — depende do número corporativo real de cada um, que
 ainda não foi levantado. Sem esse campo, o handoff por WhatsApp Cloud API continua bloqueado
 (`handoff_route_not_configured`) até o WhatsApp Business estar configurado; a notificação pelo
 **mensageiro do Bitrix** (ao criar o card e no handoff) já funciona normalmente, pois usa só o
-`bitrixUserId`.
+`bitrixUserId`, e desde 31/08/2026 o Bitrix sozinho (card criado/notificado) já é aceito como
+confirmação suficiente do handoff — não depende mais do WhatsApp Business nem do n8n.
 
-Nenhum caiu no catch-all "qualquer outro" — o Luciano nomeou um responsável para cada um dos 8.
+Nenhum caiu no catch-all "qualquer outro" — o Luciano nomeou um responsável para cada um dos 9.
 
 ## 6. Configurar Turnstile
 
