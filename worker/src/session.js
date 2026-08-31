@@ -109,17 +109,20 @@ export async function createChatSession({ request, env, input }) {
 
   let bitrixNotified = false;
   if (bitrix.ok && bitrix.entityId) {
+    const cardUrl = `https://newsun.bitrix24.com.br/crm/lead/details/${bitrix.entityId}/`;
     const im = await notifyBitrixMessenger(
       env,
       route,
       [
-        `Novo atendimento IA em andamento — ${departmentLabel}`,
+        `📋 Card cadastrado agora pelo Atendimento NewSun IA no site — ${departmentLabel}`,
         `Protocolo: ${protocol}`,
         `Visitante: ${data.name}`,
-        bitrix.reused
-          ? "A conversa está sendo conduzida pela IA. Reaproveitou o card já existente deste contato."
-          : "A conversa está sendo conduzida pela IA. O card do lead já foi criado no CRM.",
-      ].join("\n")
+        `WhatsApp: +${data.phone} (wa.me/${data.phone})`,
+        `Card: ${cardUrl}`,
+        `Você tem até 24h para chamar a pessoa no WhatsApp com as informações pedidas.`,
+        bitrix.reused ? "(Reaproveitou o card já existente deste contato.)" : null,
+      ].filter(Boolean).join("\n"),
+      { requireBusinessHours: false }
     ).catch(() => ({ ok: false }));
     bitrixNotified = Boolean(im.ok);
   }

@@ -237,7 +237,10 @@ export async function addBitrixTimelineComment(env, { entityId, entityType = "le
   return { ...call, channel: "bitrix_timeline" };
 }
 
-export async function notifyBitrixMessenger(env, route, text) {
+// requireBusinessHours=false é para avisos com prazo próprio (ex.: "24h para
+// ligar" a partir da criação do card) — precisam chegar na hora, mesmo fora do
+// expediente, senão a pessoa nunca veria o aviso até o próximo dia útil.
+export async function notifyBitrixMessenger(env, route, text, { requireBusinessHours = true } = {}) {
   if (!env.BITRIX_WEBHOOK_URL) {
     return { ok: false, skipped: true, channel: "bitrix_im", reason: "not_configured" };
   }
@@ -245,7 +248,7 @@ export async function notifyBitrixMessenger(env, route, text) {
   if (!userId) {
     return { ok: false, skipped: true, channel: "bitrix_im", reason: "no_bitrix_user" };
   }
-  if (!isBusinessHours(env)) {
+  if (requireBusinessHours && !isBusinessHours(env)) {
     return { ok: false, skipped: true, channel: "bitrix_im", reason: "fora_do_expediente" };
   }
   const call = await bitrixCall(env, "im.notify.system.add", {

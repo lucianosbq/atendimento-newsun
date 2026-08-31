@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { findExistingLeadId, getDepartmentRoute } from "../src/integrations.js";
+import { findExistingLeadId, getDepartmentRoute, notifyBitrixMessenger } from "../src/integrations.js";
 
 test("rotas privadas são lidas apenas do ambiente", () => {
   const env = {
@@ -55,4 +55,30 @@ test("findExistingLeadId devolve null sem Bitrix configurado ou sem duplicidade"
 
   const env = { BITRIX_WEBHOOK_URL: "https://bitrix.example/rest/1/token" };
   assert.equal(await findExistingLeadId(env, { phone: "5511988887777", email: "maria@example.com" }), null);
+});
+
+test("notifyBitrixMessenger respeita o expediente por padrão, mas aceita ignorar", async (t) => {
+  const originalFetch = globalThis.fetch;
+  let called = 0;
+  globalThis.fetch = async () => { called += 1; return { ok: true, status: 200, json: async () => ({ result: true }) }; };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  // "9" é um dia da semana inválido (filtrado por isBusinessHours), então a
+  // lista de dias permitidos fica vazia e nunca é expediente — determinístico,
+  // sem depender do dia/hora real em que os testes rodam. String vazia não
+  // serviria: `"" || "1,2,3,4,5"` cairia no padrão, por ser falsy em JS.
+  const env = {
+    BITRIX_WEBHOOK_URL: "https://bitrix.example/rest/1/token",
+    BUSINESS_DAYS: "9",
+  };
+  const route = { bitrixUserId: "10" };
+
+  const semBypass = await notifyBitrixMessenger(env, route, "aviso");
+  assert.equal(semBypass.skipped, true);
+  assert.equal(semBypass.reason, "fora_do_expediente");
+  assert.equal(called, 0);
+
+  const comBypass = await notifyBitrixMessenger(env, route, "aviso com prazo", { requireBusinessHours: false });
+  assert.equal(comBypass.ok, true);
+  assert.equal(called, 1);
 });

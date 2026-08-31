@@ -89,6 +89,14 @@ Visitante autoriza contato
   → cleanup exclui os dados ao fim da retenção
 ```
 
+## Notificação de card criado (SLA de 24h)
+
+Diferente da notificação de handoff (que só chega dentro do expediente, porque exige uma pessoa
+disponível para assumir a conversa na hora), a notificação de **card recém-criado** é um aviso com
+prazo próprio e chega **sempre, mesmo fora do expediente** — `notifyBitrixMessenger(...,
+{ requireBusinessHours: false })`. Um card criado às 22h só notificaria no dia seguinte se
+respeitasse o expediente, e o prazo de 24h começa a contar da criação, não da leitura.
+
 ## Estados principais do protocolo
 
 - `created` — persistido e ainda não notificado;

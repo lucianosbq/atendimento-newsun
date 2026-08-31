@@ -144,6 +144,30 @@ Cadastre as oito rotas: `comercial`, `atendimento`, `financeiro`, `juridico`, `o
 `parcerias`, `imprensa` e `pessoas`. Pode haver um número corporativo por setor ou uma central com
 roteamento no n8n. Não use telefone pessoal de colaborador.
 
+### Estado atual (configurado em 31/08/2026)
+
+O `DEPARTMENT_ROUTES_JSON` já está cadastrado como secret no Worker, com `bitrixAssignedById` e
+`bitrixUserId` reais (IDs da tabela `pessoas` da base única) para os oito departamentos:
+
+| Departamento | Responsável | ID Bitrix |
+|---|---|---|
+| Comercial | Bruno Faustino | 51 |
+| Clientes e CS | Ricardo Gonçalves da Costa | 53 |
+| Financeiro | Maria Laura Silva | 49 |
+| Jurídico e contratos | Marcela Aleixo | 19 |
+| Operações técnicas | Lauane Trento | 6 |
+| Parcerias | Gabriela Raposo | 47 |
+| Institucional e imprensa | Bruna Anielle Oliveira | 41 |
+| Pessoas e fornecedores | Halide Santos | 10 |
+
+`employeeWhatsApp` ficou vazio para todos — depende do número corporativo real de cada um, que
+ainda não foi levantado. Sem esse campo, o handoff por WhatsApp Cloud API continua bloqueado
+(`handoff_route_not_configured`) até o WhatsApp Business estar configurado; a notificação pelo
+**mensageiro do Bitrix** (ao criar o card e no handoff) já funciona normalmente, pois usa só o
+`bitrixUserId`.
+
+Nenhum caiu no catch-all "qualquer outro" — o Luciano nomeou um responsável para cada um dos 8.
+
 ## 6. Configurar Turnstile
 
 Crie um widget Turnstile para os domínios do GitHub Pages e do domínio próprio. Guarde o secret no
