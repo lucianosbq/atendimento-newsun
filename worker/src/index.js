@@ -1,6 +1,6 @@
 import { DEPARTMENTS } from "./constants.js";
 import { cleanupExpiredData, createHandoff, getHandoffStatus, updateWhatsAppStatuses } from "./handoff.js";
-import { createChatSession, markSessionAbandoned } from "./session.js";
+import { appendSessionTimeline, createChatSession, findSessionByToken, markSessionAbandoned } from "./session.js";
 import { handleAccountUpload, handleFileDownload } from "./upload.js";
 import { answerPublicChat } from "./llm.js";
 import { ingestPublicDocument } from "./rag.js";
@@ -136,6 +136,7 @@ async function route(request, env, ctx) {
     }
     const input = validateChatInput(await readJson(request, 28_000));
     const result = await answerPublicChat(env, input);
+    ctx.waitUntil(recordChatTurnBestEffort(env, input, result));
     ctx.waitUntil(cleanupOldRateLimitsBestEffort(env));
     return json(result);
   }
@@ -207,6 +208,7 @@ function validateChatInput(input) {
   const department = cleanText(input?.department, 40);
   const message = cleanText(input?.message, 2000);
   const sessionId = cleanText(input?.sessionId, 100);
+  const sessionToken = cleanText(input?.sessionToken, 160);
   if (!DEPARTMENTS[department]) throw new HttpError(400, "Departamento inválido.", "invalid_department");
   if (!message) throw new HttpError(400, "Escreva uma mensagem.", "empty_message");
   if (message.length < 2) throw new HttpError(400, "A mensagem é curta demais.", "message_too_short");
@@ -217,7 +219,7 @@ function validateChatInput(input) {
         content: cleanText(item?.content, 1600),
       })).filter((item) => item.content)
     : [];
-  return { department, message, sessionId, history };
+  return { department, message, sessionId, sessionToken, history };
 }
 
 function assertAdmin(request, env) {
@@ -282,6 +284,24 @@ function handleError(error) {
     500,
     "internal_error"
   );
+}
+
+// Grava cada pergunta/resposta na timeline do card do Bitrix desde a
+// primeira mensagem — não só no encaminhamento humano. Fire-and-forget:
+// falha aqui não pode atrasar nem quebrar a resposta ao visitante.
+async function recordChatTurnBestEffort(env, input, result) {
+  try {
+    const sessionRow = await findSessionByToken(env, input.sessionToken);
+    if (!sessionRow?.bitrix_entity_id) return;
+    const answer = typeof result?.answer === "string" ? result.answer : "";
+    await appendSessionTimeline(
+      env,
+      sessionRow,
+      [`Visitante: ${input.message}`, `Assistente: ${answer}`].join("\n")
+    );
+  } catch {
+    // registro auxiliar; não impacta a resposta principal
+  }
 }
 
 async function cleanupOldRateLimitsBestEffort(env) {

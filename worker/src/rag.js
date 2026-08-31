@@ -169,7 +169,16 @@ export async function ingestPublicDocument(env, input) {
   }
   let mutationId = "";
   for (let start = 0; start < allVectors.length; start += 100) {
-    const mutation = await env.VECTORIZE.upsert(allVectors.slice(start, start + 100));
+    const batchVectors = allVectors.slice(start, start + 100);
+    const mutation = await env.VECTORIZE.upsert(batchVectors);
+    console.log("DEBUG_INGEST_UPSERT", JSON.stringify({
+      sourceId: document.sourceId,
+      batchSize: batchVectors.length,
+      firstVectorId: batchVectors[0]?.id,
+      firstVectorLen: batchVectors[0]?.values?.length,
+      firstVectorNamespace: batchVectors[0]?.namespace,
+      mutation,
+    }));
     mutationId = mutation?.mutationId || mutationId;
   }
 
