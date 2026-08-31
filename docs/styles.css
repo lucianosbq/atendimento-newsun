@@ -404,7 +404,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 
 .composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
   margin: 0 20px;
   padding: 10px;
@@ -412,6 +412,22 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   border-radius: 18px;
   background: rgba(7, 25, 46, 0.64);
 }
+.attach-button {
+  align-self: end;
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  color: var(--white);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.attach-button:hover { border-color: rgba(255,138,0,0.4); background: rgba(255,138,0,0.1); }
 .composer:focus-within { border-color: rgba(255, 138, 0, 0.45); box-shadow: 0 0 0 4px rgba(255,138,0,0.06); }
 .composer textarea {
   max-height: 130px;
@@ -559,7 +575,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .form-grid label > span { color: #c8d8e9; font-size: 0.73rem; font-weight: 700; }
 .form-grid em { color: var(--muted-2); font-size: 0.65rem; font-style: normal; }
 .full-width { grid-column: 1 / -1; }
-.form-grid input {
+.form-grid input,
+.form-grid select {
   width: 100%;
   min-height: 46px;
   padding: 11px 13px;
@@ -569,7 +586,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   background: rgba(7,25,46,0.54);
   color: var(--white);
 }
-.form-grid input:focus { border-color: rgba(255,138,0,0.46); box-shadow: 0 0 0 4px rgba(255,138,0,0.06); }
+.form-grid select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted-2) 50%), linear-gradient(135deg, var(--muted-2) 50%, transparent 50%); background-position: calc(100% - 20px) center, calc(100% - 15px) center; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+.form-grid input:focus,
+.form-grid select:focus { border-color: rgba(255,138,0,0.46); box-shadow: 0 0 0 4px rgba(255,138,0,0.06); }
 .consent-row { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; margin: 20px 0; color: var(--muted); font-size: 0.72rem; }
 .consent-row input { width: 17px; height: 17px; accent-color: var(--orange-500); }
 .turnstile-container { min-height: 0; margin-bottom: 16px; }
@@ -636,8 +655,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .messages { min-height: 420px; max-height: 490px; padding: 20px 16px 8px; }
   .bubble { max-width: 86%; font-size: 0.86rem; }
   .suggestions { padding-inline: 16px; }
-  .composer { margin-inline: 10px; grid-template-columns: 1fr auto; }
+  .composer { margin-inline: 10px; grid-template-columns: auto 1fr auto; }
   .send-button { min-width: 50px; width: 50px; padding-inline: 0; }
+  .attach-button { width: 38px; height: 38px; }
   .send-button span:first-child { display: none; }
   .composer-footer { flex-direction: column; gap: 8px; padding-inline: 15px; }
   .human-link { align-self: flex-start; padding: 0; }
@@ -700,4 +720,38 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   height: 22px;
   object-fit: contain;
   display: block;
+}
+
+/* ---- Nome de atendente e efeito de digitação ---- */
+.typing-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.typing-label {
+  font-size: 0.78rem;
+  opacity: 0.75;
+  font-style: italic;
+}
+
+/* ---- Tela inicial mobile-first: identificação + primeira mensagem ---- */
+.start-form {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 22px;
+  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: var(--radius-xl);
+  background: rgba(7, 25, 46, 0.5);
+}
+.start-composer { margin: 4px 0 10px; }
+.start-file-chip {
+  display: inline-flex;
+  margin-bottom: 10px;
+}
+.hero-copy-compact { max-width: 640px; margin: 0 auto 22px; text-align: center; }
+.hero-copy-compact h1 { font-size: clamp(1.6rem, 4.5vw, 2.4rem); }
+
+@media (max-width: 680px) {
+  .start-form { padding: 16px; border-radius: 18px; }
 }

@@ -70,6 +70,14 @@
     }
   ]);
 
+  // Nomes de atendente ligados ao sol/luz — sorteado uma vez por conversa,
+  // só para dar acolhimento humano ao chat; não representa uma pessoa real.
+  const ATTENDANT_NAMES = Object.freeze(["Aurora", "Helena", "Solange", "Clarice", "Sol"]);
+
+  function pickAttendantName() {
+    return ATTENDANT_NAMES[Math.floor(Math.random() * ATTENDANT_NAMES.length)];
+  }
+
   const state = {
     sessionId: crypto.randomUUID(),
     department: null,
@@ -78,19 +86,20 @@
     handoffReason: "Solicitação do visitante",
     turnstileWidgetId: null,
     turnstileToken: "",
-    intakeWidgetId: null,
-    intakeToken: "",
+    startWidgetId: null,
+    startToken: "",
+    pendingStartFile: null,
     handoffRequestId: "",
     statusPollGeneration: 0,
     session: null,
     profile: null,
-    pendingDepartment: "",
     flowData: {},
     flowAwaiting: null,
     hotLeadPrompted: false,
     handoffDone: false,
     abandonSent: false,
-    hiddenTimer: null
+    hiddenTimer: null,
+    attendantName: pickAttendantName()
   };
 
   const CONSENT_TEXT = "Autorizo a NewSun a usar estes dados para registrar o atendimento e entrar em contato comigo pelo WhatsApp sobre esta solicitação.";
@@ -360,6 +369,7 @@
 
   const els = {
     welcomeView: byId("welcome-view"),
+    departmentPickerView: byId("department-picker-view"),
     chatView: byId("chat-view"),
     successView: byId("success-view"),
     departmentGrid: byId("department-grid"),
@@ -374,6 +384,7 @@
     back: byId("back-button"),
     changeDepartment: byId("change-department-button"),
     chatTitle: byId("chat-title"),
+    attendantName: byId("attendant-name"),
     departmentIcon: byId("department-icon"),
     demoBanner: byId("demo-banner"),
     serviceStatus: byId("service-status-text"),
@@ -386,16 +397,19 @@
     handoffEmail: byId("handoff-email"),
     handoffOrganization: byId("handoff-organization"),
     protocolChip: byId("protocol-chip"),
-    intakeDialog: byId("intake-dialog"),
-    intakeForm: byId("intake-form"),
-    closeIntake: byId("close-intake-button"),
-    intakeName: byId("intake-name"),
-    intakeEmail: byId("intake-email"),
-    intakePhone: byId("intake-phone"),
-    intakeConsent: byId("intake-consent"),
-    intakeSubmit: byId("intake-submit"),
-    intakeError: byId("intake-error"),
-    intakeTurnstileContainer: byId("intake-turnstile-container"),
+    startForm: byId("start-form"),
+    startName: byId("start-name"),
+    startPhone: byId("start-phone"),
+    startEmail: byId("start-email"),
+    startDepartment: byId("start-department"),
+    startConsent: byId("start-consent"),
+    startSubmit: byId("start-submit"),
+    startError: byId("start-error"),
+    startTurnstileContainer: byId("start-turnstile-container"),
+    startMessage: byId("start-message"),
+    startAttach: byId("start-attach-button"),
+    startFileInput: byId("start-file-input"),
+    startFileChip: byId("start-file-chip"),
     handoffConsent: byId("handoff-consent"),
     handoffSubmit: byId("handoff-submit"),
     handoffError: byId("handoff-error"),
@@ -417,7 +431,9 @@
 
   function initialize() {
     renderDepartments();
+    renderDepartmentSelect();
     bindEvents();
+    renderStartTurnstileIfNeeded();
     els.demoBanner.hidden = !Boolean(config.demoMode);
     if (config.demoMode) {
       els.serviceStatus.textContent = "Demonstração ativa";
@@ -442,13 +458,16 @@
     els.handoffPhone.addEventListener("input", maskPhoneInput);
     els.newConversation.addEventListener("click", resetConversation);
 
-    els.closeIntake.addEventListener("click", () => els.intakeDialog.close());
-    els.intakeForm.addEventListener("submit", handleIntakeSubmit);
-    els.intakePhone.addEventListener("input", () => maskPhoneField(els.intakePhone));
+    els.startForm.addEventListener("submit", handleStartSubmit);
+    els.startPhone.addEventListener("input", () => maskPhoneField(els.startPhone));
+    els.startMessage.addEventListener("input", () => autoResizeField(els.startMessage));
+    els.startAttach.addEventListener("click", () => els.startFileInput.click());
+    els.startFileInput.addEventListener("change", () => {
+      const file = els.startFileInput.files?.[0];
+      els.startFileInput.value = "";
+      if (file) attachStartFile(file);
+    });
 
-    // Abandono da tela: ao sair da página (ou ficar 3 minutos com a aba
-    // escondida), avisa o backend para registrar no card do Bitrix que o
-    // contato agora só é possível por WhatsApp ou e-mail.
     els.attach.addEventListener("click", () => els.fileInput.click());
     els.fileInput.addEventListener("change", () => {
       const file = els.fileInput.files?.[0];
@@ -456,6 +475,9 @@
       if (file) void uploadAccountFile(file);
     });
 
+    // Abandono da tela: ao sair da página (ou ficar 3 minutos com a aba
+    // escondida), avisa o backend para registrar no card do Bitrix que o
+    // contato agora só é possível por WhatsApp ou e-mail.
     window.addEventListener("pagehide", sendAbandonBeacon);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") {
@@ -470,7 +492,7 @@
     els.closePrivacy.addEventListener("click", () => els.privacyDialog.close());
     els.privacyOk.addEventListener("click", () => els.privacyDialog.close());
 
-    for (const dialog of [els.handoffDialog, els.privacyDialog, els.intakeDialog]) {
+    for (const dialog of [els.handoffDialog, els.privacyDialog]) {
       dialog.addEventListener("click", (event) => {
         if (event.target === dialog) dialog.close();
       });
@@ -507,15 +529,21 @@
     }
   }
 
+  function renderDepartmentSelect() {
+    els.startDepartment.replaceChildren(els.startDepartment.firstElementChild);
+    for (const department of DEPARTMENTS) {
+      const option = document.createElement("option");
+      option.value = department.id;
+      option.textContent = department.label;
+      els.startDepartment.append(option);
+    }
+  }
+
+  // Usado pela grade de departamentos (só aparece depois do cadastro feito,
+  // para trocar de assunto sem repetir nome/e-mail/WhatsApp).
   function selectDepartment(id) {
     const department = getDepartment(id);
     if (!department) return;
-
-    if (!state.session) {
-      state.pendingDepartment = id;
-      openIntake();
-      return;
-    }
     enterChat(id);
   }
 
@@ -531,6 +559,7 @@
     state.hotLeadPrompted = false;
 
     els.chatTitle.textContent = department.label;
+    els.attendantName.textContent = state.attendantName;
     els.departmentIcon.textContent = department.icon;
     els.messages.replaceChildren();
     els.suggestions.replaceChildren();
@@ -643,49 +672,57 @@
     return `${base || "Solicitação do visitante"}${suffix}`.slice(0, 380);
   }
 
-  // ---- Cadastro inicial ----
+  // ---- Cadastro inicial: uma só tela (nome, WhatsApp, e-mail, departamento,
+  // caixa de mensagem e clipe) — mobile-first, sem etapa intermediária ----
 
-  function openIntake() {
-    els.intakeError.hidden = true;
-    els.intakeError.textContent = "";
-    els.intakeSubmit.disabled = false;
-    els.intakeSubmit.textContent = "Iniciar atendimento";
-    els.intakeDialog.showModal();
-    renderIntakeTurnstileIfNeeded();
-    requestAnimationFrame(() => els.intakeName.focus());
+  function attachStartFile(file) {
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      return showStartError("Formato não aceito. Envie a conta em PDF, JPG ou PNG.");
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      return showStartError("O arquivo passa de 8 MB. Envie uma foto menor ou o PDF original da conta.");
+    }
+    state.pendingStartFile = file;
+    els.startFileChip.textContent = `📎 ${file.name}`;
+    els.startFileChip.hidden = false;
+    els.startError.hidden = true;
   }
 
-  async function handleIntakeSubmit(event) {
+  async function handleStartSubmit(event) {
     event.preventDefault();
 
-    const name = els.intakeName.value.trim().replace(/\s+/g, " ");
-    const email = els.intakeEmail.value.trim();
-    const phoneDisplay = els.intakePhone.value;
+    const name = els.startName.value.trim().replace(/\s+/g, " ");
+    const email = els.startEmail.value.trim();
+    const phoneDisplay = els.startPhone.value;
     const phone = normalizeBrazilianPhone(phoneDisplay);
-    const consent = els.intakeConsent.checked;
+    const department = els.startDepartment.value;
+    const consent = els.startConsent.checked;
+    const message = els.startMessage.value.trim();
 
-    if (name.length < 5 || !name.includes(" ")) return showIntakeError("Informe seu nome completo (nome e sobrenome).");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return showIntakeError("Informe um e-mail válido.");
-    if (!phone) return showIntakeError("Informe um número de WhatsApp válido com DDD.");
-    if (!consent) return showIntakeError("É necessário autorizar o contato para iniciar o atendimento.");
-    if (!config.demoMode && config.turnstileSiteKey && !state.intakeToken) {
-      return showIntakeError("Conclua a verificação de segurança.");
+    if (name.length < 5 || !name.includes(" ")) return showStartError("Informe seu nome completo (nome e sobrenome).");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return showStartError("Informe um e-mail válido.");
+    if (!phone) return showStartError("Informe um número de WhatsApp válido com DDD.");
+    if (!getDepartment(department)) return showStartError("Selecione o departamento.");
+    if (!consent) return showStartError("É necessário autorizar o contato para iniciar o atendimento.");
+    if (!config.demoMode && config.turnstileSiteKey && !state.startToken) {
+      return showStartError("Conclua a verificação de segurança.");
     }
 
-    els.intakeSubmit.disabled = true;
-    els.intakeSubmit.textContent = "Gerando protocolo…";
-    els.intakeError.hidden = true;
+    els.startSubmit.disabled = true;
+    els.startSubmit.querySelector("span:first-child").textContent = "Gerando protocolo…";
+    els.startError.hidden = true;
 
     try {
       const payload = {
-        department: state.pendingDepartment,
+        department,
         name,
         email,
         phone,
         consent: true,
         consentText: CONSENT_TEXT,
         requestId: crypto.randomUUID(),
-        turnstileToken: state.intakeToken
+        turnstileToken: state.startToken
       };
       const response = config.demoMode
         ? await demoSessionResponse(payload)
@@ -701,13 +738,27 @@
       state.profile = { name, email, phone, phoneDisplay };
       state.abandonSent = false;
       state.handoffDone = false;
-      els.intakeDialog.close();
-      enterChat(state.pendingDepartment);
+
+      const pendingFile = state.pendingStartFile;
+      state.pendingStartFile = null;
+      enterChat(department);
+
+      if (pendingFile) await uploadAccountFile(pendingFile);
+      if (message) {
+        els.input.value = message;
+        autoResizeInput();
+        els.form.requestSubmit();
+      }
+
+      els.startForm.reset();
+      els.startFileChip.hidden = true;
+      resetStartTurnstile();
     } catch (error) {
       console.error(error);
-      showIntakeError(error.message || "Não foi possível concluir o cadastro. Tente novamente.");
-      els.intakeSubmit.disabled = false;
-      els.intakeSubmit.textContent = "Tentar novamente";
+      showStartError(error.message || "Não foi possível concluir o cadastro. Tente novamente.");
+    } finally {
+      els.startSubmit.disabled = false;
+      els.startSubmit.querySelector("span:first-child").textContent = "Iniciar";
     }
   }
 
@@ -795,9 +846,9 @@
     } catch (_) { /* melhor esforço */ }
   }
 
-  function showIntakeError(message) {
-    els.intakeError.textContent = message;
-    els.intakeError.hidden = false;
+  function showStartError(message) {
+    els.startError.textContent = message;
+    els.startError.hidden = false;
   }
 
   async function demoSessionResponse(payload) {
@@ -819,10 +870,10 @@
     };
   }
 
-  function renderIntakeTurnstileIfNeeded() {
+  function renderStartTurnstileIfNeeded() {
     if (config.demoMode || !config.turnstileSiteKey) {
-      els.intakeTurnstileContainer.replaceChildren();
-      state.intakeToken = config.demoMode ? "demo-token" : "";
+      els.startTurnstileContainer.replaceChildren();
+      state.startToken = config.demoMode ? "demo-token" : "";
       return;
     }
     const tryRender = () => {
@@ -830,24 +881,33 @@
         setTimeout(tryRender, 150);
         return;
       }
-      if (state.intakeWidgetId !== null) {
-        window.turnstile.reset(state.intakeWidgetId);
+      if (state.startWidgetId !== null) {
+        window.turnstile.reset(state.startWidgetId);
         return;
       }
-      state.intakeWidgetId = window.turnstile.render(els.intakeTurnstileContainer, {
+      state.startWidgetId = window.turnstile.render(els.startTurnstileContainer, {
         sitekey: config.turnstileSiteKey,
         theme: "dark",
         language: "pt-BR",
-        callback: (token) => { state.intakeToken = token; },
-        "expired-callback": () => { state.intakeToken = ""; },
-        "error-callback": () => { state.intakeToken = ""; }
+        callback: (token) => { state.startToken = token; },
+        "expired-callback": () => { state.startToken = ""; },
+        "error-callback": () => { state.startToken = ""; }
       });
     };
     tryRender();
   }
 
+  function resetStartTurnstile() {
+    state.startToken = "";
+    if (window.turnstile && state.startWidgetId !== null) {
+      try { window.turnstile.reset(state.startWidgetId); } catch (_) { /* noop */ }
+    }
+  }
+
   function showWelcome() {
-    showOnly(els.welcomeView);
+    // Com cadastro já feito, "voltar"/"mudar área" mostra só a grade de
+    // departamentos — não repete nome, e-mail e WhatsApp.
+    showOnly(state.session ? els.departmentPickerView : els.welcomeView);
     state.department = null;
     state.history = [];
     els.messages.replaceChildren();
@@ -960,7 +1020,11 @@
     bubble.className = "bubble";
 
     const content = document.createElement("div");
-    content.textContent = text;
+    if (role === "assistant" && options.typewriter !== false && text) {
+      void typeWords(content, text);
+    } else {
+      content.textContent = text;
+    }
     bubble.append(content);
 
     if (options.sources?.length) {
@@ -988,6 +1052,27 @@
     return wrapper;
   }
 
+  // Revela o texto palavra por palavra, como se estivesse sendo digitado.
+  // O intervalo por palavra é calculado para a mensagem inteira aparecer em
+  // cerca de 1 segundo, independente do tamanho — mensagens curtas "digitam"
+  // mais devagar, mensagens longas mais rápido, sem travar o chat.
+  function typeWords(el, text) {
+    const words = text.split(/(\s+)/).filter((part) => part !== "");
+    const targetTotalMs = 1000;
+    const wordDelay = Math.max(18, Math.min(90, targetTotalMs / Math.max(1, words.length)));
+    let index = 0;
+    return new Promise((resolve) => {
+      function step() {
+        if (index >= words.length) { resolve(); return; }
+        el.textContent += words[index];
+        index += 1;
+        scrollMessages();
+        setTimeout(step, wordDelay);
+      }
+      step();
+    });
+  }
+
   function addTypingMessage() {
     const wrapper = document.createElement("article");
     wrapper.className = "message assistant";
@@ -996,12 +1081,18 @@
 
     const bubble = document.createElement("div");
     bubble.className = "bubble";
-    bubble.setAttribute("aria-label", "A assistente está elaborando a resposta");
+    bubble.setAttribute("aria-label", `${state.attendantName} está digitando`);
 
+    const row = document.createElement("div");
+    row.className = "typing-row";
+    const label = document.createElement("span");
+    label.className = "typing-label";
+    label.textContent = `${state.attendantName} está digitando`;
     const dots = document.createElement("span");
     dots.className = "typing-dots";
     dots.innerHTML = "<span></span><span></span><span></span>";
-    bubble.append(dots);
+    row.append(label, dots);
+    bubble.append(row);
     wrapper.append(avatar, bubble);
     els.messages.append(wrapper);
     scrollMessages();
@@ -1275,15 +1366,18 @@
     state.statusPollGeneration += 1;
     state.session = null;
     state.profile = null;
-    state.pendingDepartment = "";
     state.flowData = {};
     state.flowAwaiting = null;
     state.hotLeadPrompted = false;
     state.handoffDone = false;
     state.abandonSent = false;
+    state.pendingStartFile = null;
+    state.attendantName = pickAttendantName();
     els.protocolChip.hidden = true;
     els.protocolChip.textContent = "";
-    els.intakeForm.reset();
+    els.startForm.reset();
+    els.startFileChip.hidden = true;
+    resetStartTurnstile();
     els.handoffForm.reset();
     els.messages.replaceChildren();
     els.suggestions.replaceChildren();
@@ -1457,7 +1551,7 @@
   }
 
   function showOnly(view) {
-    for (const element of [els.welcomeView, els.chatView, els.successView]) {
+    for (const element of [els.welcomeView, els.departmentPickerView, els.chatView, els.successView]) {
       element.hidden = element !== view;
     }
   }
@@ -1481,8 +1575,12 @@
   }
 
   function autoResizeInput() {
-    els.input.style.height = "auto";
-    els.input.style.height = `${Math.min(els.input.scrollHeight, 130)}px`;
+    autoResizeField(els.input);
+  }
+
+  function autoResizeField(field) {
+    field.style.height = "auto";
+    field.style.height = `${Math.min(field.scrollHeight, 130)}px`;
   }
 
   function maskPhoneInput() {
