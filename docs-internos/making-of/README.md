@@ -15,7 +15,9 @@ projeto ficou. Complementa (não substitui) os documentos de referência técnic
 | [05-estado-atual-e-pendencias.md](05-estado-atual-e-pendencias.md) | Checklist do que está pronto e do que falta, com o motivo de cada pendência |
 
 Também existe um painel visual consolidado, pensado para leitura rápida em vez de navegar pelos
-`.md`: https://claude.ai/code/artifact/19efa7ff-f0bd-4124-b8bb-35cf2d7c489d
+`.md`: https://claude.ai/code/artifact/19efa7ff-f0bd-4124-b8bb-35cf2d7c489d — e o mesmo painel em
+PDF, [`confeccao-atendimento-newsun-ia.pdf`](confeccao-atendimento-newsun-ia.pdf), para quem
+precisar de uma versão offline ou para anexar em e-mail.
 
 ## Como este material foi produzido
 
