@@ -756,6 +756,7 @@
     } catch (error) {
       console.error(error);
       showStartError(error.message || "Não foi possível concluir o cadastro. Tente novamente.");
+      resetStartTurnstile();
     } finally {
       els.startSubmit.disabled = false;
       els.startSubmit.querySelector("span:first-child").textContent = "Iniciar";
