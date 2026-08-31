@@ -130,8 +130,13 @@ export async function createHandoff({ request, env, input }) {
   const employeeWhatsApp = results.find((item) => item.channel === "whatsapp_employee");
   const bitrix = results.find((item) => item.channel === "bitrix");
   const n8n = results.find((item) => item.channel === "n8n");
+  const bitrixIm = results.find((item) => item.channel === "bitrix_im");
   const successful = results.filter((item) => item.ok);
-  const notificationAccepted = Boolean(employeeWhatsApp?.ok || (n8n?.ok && n8n?.notified === true));
+  // O card no Bitrix (criado/atualizado) já é notificação real e verificável do setor —
+  // não depende do WhatsApp Business (Meta) nem do n8n estarem configurados.
+  const notificationAccepted = Boolean(
+    employeeWhatsApp?.ok || (n8n?.ok && n8n?.notified === true) || bitrix?.ok || bitrixIm?.ok
+  );
 
   if (!notificationAccepted) {
     const safeErrors = results
@@ -152,8 +157,13 @@ export async function createHandoff({ request, env, input }) {
   }
 
   const n8nConfirmed = Boolean(n8n?.ok && n8n?.notified === true);
-  const primaryChannel = employeeWhatsApp?.ok ? "whatsapp" : "n8n";
-  const notificationState = n8nConfirmed ? "confirmed_by_n8n" : "accepted_by_whatsapp";
+  const bitrixConfirmed = Boolean(bitrix?.ok || bitrixIm?.ok);
+  const primaryChannel = employeeWhatsApp?.ok ? "whatsapp" : n8nConfirmed ? "n8n" : "bitrix";
+  const notificationState = n8nConfirmed
+    ? "confirmed_by_n8n"
+    : employeeWhatsApp?.ok
+      ? "accepted_by_whatsapp"
+      : "confirmed_by_bitrix";
   await env.DB.prepare(
     `UPDATE handoffs
      SET status = 'notified', notification_channel = ?, notification_state = ?, whatsapp_message_id = ?, bitrix_entity_id = ?, updated_at = ?
@@ -170,6 +180,7 @@ export async function createHandoff({ request, env, input }) {
     channels: successful.map((item) => item.channel),
     whatsappAccepted: Boolean(employeeWhatsApp?.ok),
     n8nConfirmed,
+    bitrixConfirmed,
   });
 
   const customerConfirmation = await confirmCustomerWhatsApp(env, handoff).catch((error) => integrationFailure("whatsapp_customer", error));
@@ -178,7 +189,7 @@ export async function createHandoff({ request, env, input }) {
     accepted: Boolean(customerConfirmation.ok),
   });
 
-  const employeeNotified = n8nConfirmed;
+  const employeeNotified = n8nConfirmed || bitrixConfirmed;
   const message = employeeNotified
     ? `Seu atendimento foi registrado. O departamento ${departmentLabel} confirmou o recebimento da notificação e do seu contato. Você não precisa manter esta página aberta.`
     : `Seu atendimento foi registrado e a notificação foi aceita para envio ao departamento ${departmentLabel}. Estamos confirmando a entrega antes de liberar o fechamento desta página.`;
@@ -214,7 +225,7 @@ export async function getHandoffStatus(env, { protocol, statusToken }) {
   }
 
   const state = cleanText(row.notification_state, 40);
-  const employeeNotified = ["delivered", "read", "confirmed_by_n8n"].includes(state);
+  const employeeNotified = ["delivered", "read", "confirmed_by_n8n", "confirmed_by_bitrix", "accepted_by_whatsapp"].includes(state);
   const failed = row.status === "notification_failed" || state === "failed";
   const departmentLabel = DEPARTMENTS[row.department]?.label || "responsável";
   const message = employeeNotified

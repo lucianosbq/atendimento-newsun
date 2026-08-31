@@ -314,7 +314,8 @@ export async function notifyN8n(env, route, handoff) {
 export function assertAtLeastOneHandoffRouteConfigured(env, route) {
   const configured = Boolean(
     (env.META_ACCESS_TOKEN && env.META_PHONE_NUMBER_ID && route?.employeeWhatsApp) ||
-    env.N8N_HANDOFF_URL
+    env.N8N_HANDOFF_URL ||
+    (env.BITRIX_WEBHOOK_URL && (route?.bitrixAssignedById || route?.bitrixUserId))
   );
   if (!configured) {
     throw new HttpError(
