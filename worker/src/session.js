@@ -2,6 +2,7 @@ import { CONSENT_TEXT, DEPARTMENTS } from "./constants.js";
 import {
   addBitrixTimelineComment,
   createBitrixSessionLead,
+  findExistingLeadId,
   getDepartmentRoute,
   isBusinessHours,
   notifyBitrixMessenger,
@@ -82,11 +83,29 @@ export async function createChatSession({ request, env, input }) {
     consentTextVersion: env.CONSENT_TEXT_VERSION || "2026-08-30-v1",
   };
 
-  const bitrix = await createBitrixSessionLead(env, route, session).catch((error) => ({
-    ok: false,
-    channel: "bitrix",
-    error: cleanText(error?.message || error, 300),
-  }));
+  const existingLeadId = await findExistingLeadId(env, { phone: data.phone, email: data.email }).catch(() => null);
+
+  let bitrix;
+  if (existingLeadId) {
+    // Mesma pessoa reconhecida por telefone/e-mail: reaproveita o card,
+    // registrando a nova conversa como comentário — nunca cria um segundo lead.
+    const comment = await addBitrixTimelineComment(env, {
+      entityId: existingLeadId,
+      text: [
+        `Novo atendimento IA iniciado — visitante já conhecido (telefone/e-mail reconhecido).`,
+        `Protocolo: ${protocol}`,
+        `Departamento: ${departmentLabel}`,
+        `Nome informado agora: ${data.name}`,
+      ].join("\n"),
+    }).catch((error) => ({ ok: false, error: cleanText(error?.message || error, 300) }));
+    bitrix = { ok: Boolean(comment.ok), channel: "bitrix", entityId: existingLeadId, reused: true };
+  } else {
+    bitrix = await createBitrixSessionLead(env, route, session).catch((error) => ({
+      ok: false,
+      channel: "bitrix",
+      error: cleanText(error?.message || error, 300),
+    }));
+  }
 
   let bitrixNotified = false;
   if (bitrix.ok && bitrix.entityId) {
@@ -97,7 +116,9 @@ export async function createChatSession({ request, env, input }) {
         `Novo atendimento IA em andamento — ${departmentLabel}`,
         `Protocolo: ${protocol}`,
         `Visitante: ${data.name}`,
-        `A conversa está sendo conduzida pela IA. O card do lead já foi criado no CRM.`,
+        bitrix.reused
+          ? "A conversa está sendo conduzida pela IA. Reaproveitou o card já existente deste contato."
+          : "A conversa está sendo conduzida pela IA. O card do lead já foi criado no CRM.",
       ].join("\n")
     ).catch(() => ({ ok: false }));
     bitrixNotified = Boolean(im.ok);
@@ -114,6 +135,7 @@ export async function createChatSession({ request, env, input }) {
     department: data.department,
     departmentLabel,
     bitrixCardCreated: Boolean(bitrix.ok),
+    bitrixCardReused: Boolean(bitrix.reused),
     withinBusinessHours: isBusinessHours(env),
     message: `Cadastro registrado. Seu protocolo é ${protocol}. Pode perguntar à vontade — quando precisar de uma pessoa, o setor ${departmentLabel} será acionado com todo o histórico.`,
   };

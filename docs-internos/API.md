@@ -11,9 +11,11 @@ Lista IDs e escopos públicos dos departamentos.
 ## `POST /v1/session`
 
 Abre a conversa: valida o cadastro do visitante (nome completo, e-mail e WhatsApp), verifica o
-Turnstile, gera o **número de protocolo**, grava a sessão com PII criptografada e **cria o card
-(lead) no Bitrix24** imediatamente. Dentro do horário de expediente, também notifica o funcionário
-do setor pelo **mensageiro do Bitrix** (`im.notify.system.add`).
+Turnstile, gera o **número de protocolo** e grava a sessão com PII criptografada. Antes de criar um
+card, procura por `crm.duplicate.findbycomm` (telefone e e-mail) se essa pessoa já tem um lead no
+Bitrix24 de um atendimento anterior — se tiver, **reaproveita o mesmo card** (grava a conversa nova
+como comentário na linha do tempo); se não, cria um lead novo. Dentro do horário de expediente,
+também notifica o funcionário do setor pelo **mensageiro do Bitrix** (`im.notify.system.add`).
 
 ```json
 {
@@ -38,6 +40,7 @@ Resposta HTTP 201:
   "department": "comercial",
   "departmentLabel": "Comercial",
   "bitrixCardCreated": true,
+  "bitrixCardReused": false,
   "withinBusinessHours": true,
   "message": "Cadastro registrado..."
 }

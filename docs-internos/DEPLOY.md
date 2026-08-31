@@ -183,11 +183,25 @@ Crie um webhook de entrada com permissões **crm** e **im** (o `im` é necessár
 notificação pelo mensageiro). A URL deve ser a **base** do webhook (`https://SEU-PORTAL/rest/ID/TOKEN`),
 sem método no final — o Worker acrescenta o método conforme a chamada:
 
-- `crm.lead.add.json` — card criado **na abertura da conversa** (nome completo, e-mail, WhatsApp e protocolo);
-- `crm.timeline.comment.add.json` — o handoff entra como comentário no mesmo lead, com o resumo da conversa;
+- `crm.duplicate.findbycomm.json` — antes de criar qualquer card, o Worker procura um lead já
+  existente com o **mesmo telefone ou e-mail** (mecanismo nativo de deduplicação do Bitrix);
+- `crm.lead.add.json` — card criado **na abertura da conversa**, só quando nenhum lead existente foi
+  encontrado (nome completo, e-mail, WhatsApp e protocolo);
+- `crm.timeline.comment.add.json` — quando a pessoa já é conhecida (mesmo telefone/e-mail de um
+  atendimento anterior, mesmo com protocolo novo) ou quando há handoff, a conversa entra como
+  comentário no **mesmo card**, nunca cria um segundo lead;
 - `im.notify.system.add.json` — notificação ao funcionário do setor, **somente dentro do expediente**
   (vars `BUSINESS_HOURS_START`, `BUSINESS_HOURS_END`, `BUSINESS_DAYS`, `BUSINESS_TZ_OFFSET_MINUTES`
   no `wrangler.toml`; padrão seg–sex, 08h–18h, fuso −03:00).
+
+### Sem duplicidade de card entre atendimentos
+
+Quando a mesma pessoa volta ao site — em outro dia, outro dispositivo, outra sessão — o novo
+protocolo gerado (`NS-AAAAMMDD-NNNNNN`) é sempre diferente, mas o **card do Bitrix é o mesmo**,
+localizado por `crm.duplicate.findbycomm` a partir do telefone ou do e-mail informado no cadastro.
+O reconhecimento não usa o nome (nomes variam demais entre digitações) — só telefone e e-mail, que
+são os identificadores estáveis. Vale tanto na abertura da conversa quanto no handoff feito sem
+sessão. Se nenhum dos dois bater, um card novo é criado normalmente.
 
 No lead criado na abertura vão:
 

@@ -183,6 +183,25 @@ export async function createBitrixLead(env, route, handoff) {
   return { ok: true, channel: "bitrix", entityId: cleanText(call.result, 100), status: call.status };
 }
 
+// Antes de abrir um card novo, procura um lead já existente com o mesmo
+// telefone ou e-mail (crm.duplicate.findbycomm é o mecanismo nativo de
+// deduplicação do Bitrix). Encontrando, a conversa nova reaproveita o mesmo
+// card — mesmo com protocolo diferente — em vez de criar duplicidade.
+export async function findExistingLeadId(env, { phone, email }) {
+  if (!env.BITRIX_WEBHOOK_URL) return null;
+  const lookups = [];
+  if (phone) lookups.push(bitrixCall(env, "crm.duplicate.findbycomm", { type: "PHONE", values: [`+${phone}`], entity_type: "LEAD" }));
+  if (email) lookups.push(bitrixCall(env, "crm.duplicate.findbycomm", { type: "EMAIL", values: [email], entity_type: "LEAD" }));
+  if (!lookups.length) return null;
+
+  const results = await Promise.all(lookups);
+  for (const result of results) {
+    const ids = result?.result?.LEAD;
+    if (Array.isArray(ids) && ids.length) return cleanText(ids[0], 30);
+  }
+  return null;
+}
+
 export async function createBitrixSessionLead(env, route, session) {
   return createBitrixLead(env, route, {
     protocol: session.protocol,

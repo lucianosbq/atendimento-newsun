@@ -4,6 +4,7 @@ import {
   assertAtLeastOneHandoffRouteConfigured,
   confirmCustomerWhatsApp,
   createBitrixLead,
+  findExistingLeadId,
   getDepartmentRoute,
   notifyBitrixMessenger,
   notifyEmployeeWhatsApp,
@@ -288,22 +289,27 @@ export async function cleanupExpiredData(env) {
 }
 
 // Sessão com card já aberto no Bitrix recebe comentário na linha do tempo do
-// mesmo lead; sem sessão, cria o lead na hora (comportamento original).
+// mesmo lead. Sem sessão (handoff direto), procura primeiro um lead existente
+// pelo telefone/e-mail antes de criar um novo — mesma pessoa, mesmo card.
 async function registerHandoffInBitrix(env, route, handoff, sessionRow) {
-  if (!sessionRow?.bitrix_entity_id) {
+  const entityId = sessionRow?.bitrix_entity_id
+    || (await findExistingLeadId(env, { phone: handoff.phone, email: handoff.email }).catch(() => null));
+  if (!entityId) {
     return createBitrixLead(env, route, handoff);
   }
   const comment = await addBitrixTimelineComment(env, {
-    entityId: sessionRow.bitrix_entity_id,
+    entityId,
     text: [
-      `Encaminhamento humano solicitado — protocolo ${handoff.protocol}`,
+      sessionRow?.bitrix_entity_id
+        ? `Encaminhamento humano solicitado — protocolo ${handoff.protocol}`
+        : `Encaminhamento humano solicitado — visitante já conhecido (telefone/e-mail reconhecido) — protocolo ${handoff.protocol}`,
       `Motivo: ${handoff.reason}`,
       `Resumo da conversa:`,
       handoff.summary,
       `Consentimento: ${handoff.consentAt} (${handoff.consentTextVersion})`,
     ].join("\n"),
   });
-  return { ...comment, channel: "bitrix", entityId: sessionRow.bitrix_entity_id };
+  return { ...comment, channel: "bitrix", entityId };
 }
 
 function validateHandoffInput(input) {

@@ -15,6 +15,8 @@ para WhatsApp, desenhada para **responder primeiro e encaminhar só quando neces
 - oito departamentos, cada um com **fluxo guiado por botões** (o comercial segue o roteiro inbound completo de qualificação PME, com gatilhos de lead quente);
 - **cadastro na abertura** (nome completo, e-mail e WhatsApp) com **protocolo gerado no início da conversa**;
 - **card criado no Bitrix24 no momento em que a conversa começa**, atualizado na linha do tempo quando há handoff;
+- **sem duplicidade entre atendimentos**: se a mesma pessoa voltar (mesmo telefone ou e-mail), a
+  conversa nova reaproveita o card já existente — mesmo com um número de protocolo diferente;
 - **notificação ao funcionário pelo mensageiro do Bitrix**, apenas dentro do horário de expediente;
 - protocolo, consentimento versionado e PII criptografada com AES-256-GCM;
 - Cloudflare Turnstile no encaminhamento;
@@ -33,7 +35,7 @@ para WhatsApp, desenhada para **responder primeiro e encaminhar só quando neces
 - **expediente humano fixo em segunda a sexta, 8h às 18h** (fuso de Brasília) — fora dele a IA
   segue respondendo, mas avisa que o retorno humano só ocorre no próximo expediente;
 - retenção e limpeza automática (inclui os arquivos enviados no R2);
-- 24 testes automatizados.
+- 26 testes automatizados.
 
 ## Jornada
 
@@ -91,7 +93,7 @@ npm test
 npm run check
 ```
 
-Resultado validado na entrega: **24/24 testes aprovados**.
+Resultado validado na entrega: **26/26 testes aprovados**.
 
 ## Implantação
 

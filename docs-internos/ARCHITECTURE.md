@@ -81,7 +81,8 @@ Visitante autoriza contato
   → gera protocolo
   → criptografa PII com AES-256-GCM
   → grava D1
-  → WhatsApp do setor + Bitrix + n8n
+  → procura lead existente por telefone/e-mail (crm.duplicate.findbycomm); achou, reaproveita o card
+  → WhatsApp do setor + Bitrix (lead novo ou comentário no card reaproveitado) + n8n
   → pelo menos um canal precisa aceitar
   → confirma ao visitante
   → webhook Meta atualiza entrega/leitura
