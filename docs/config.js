@@ -1,13 +1,13 @@
 window.NEWSUN_CHAT_CONFIG = Object.freeze({
   // Troque pela URL do Cloudflare Worker depois do deploy.
-  apiBaseUrl: "https://newsun-atendimento-api.SEU-SUBDOMINIO.workers.dev",
+  apiBaseUrl: "https://newsun-atendimento-api.lucianosbq.workers.dev",
 
   // Cole a Site Key do Cloudflare Turnstile. O secret fica somente no Worker.
-  turnstileSiteKey: "",
+  turnstileSiteKey: "0x4AAAAAAEjAspbfdd5vPf1J",
 
   // true mantém uma demonstração navegável sem chamar serviços externos.
   // Mude para false em produção.
-  demoMode: true,
+  demoMode: false,
 
   // Usado apenas para exibir a política ao visitante.
   privacyUrl: "",

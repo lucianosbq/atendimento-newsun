@@ -31,7 +31,7 @@ index_name = "newsun-public-knowledge"
 
 [vars]
 ENVIRONMENT = "production"
-ALLOWED_ORIGINS = "https://SEU-USUARIO.github.io,https://atendimento.newsun.energy"
+ALLOWED_ORIGINS = "https://lucianosbq.github.io"
 MODEL_CHAT = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 MODEL_EMBEDDING = "@cf/baai/bge-m3"
 META_GRAPH_VERSION = "v26.0"
