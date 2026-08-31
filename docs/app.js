@@ -952,6 +952,7 @@
         ? await demoChatResponse(message, state.department)
         : await callApi("/v1/chat", {
             sessionId: state.sessionId,
+            sessionToken: state.session?.token || "",
             department: state.department.id,
             message,
             history: state.history.slice(0, -1)
