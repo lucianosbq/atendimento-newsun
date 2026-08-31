@@ -121,8 +121,10 @@ export async function createHandoff({ request, env, input }) {
       [
         `Encaminhamento humano solicitado — ${departmentLabel}`,
         `Protocolo: ${protocol}`,
-        `Visitante: ${data.name} (wa.me/${data.phone})`,
-        `Motivo: ${data.reason}`,
+        `Visitante: ${data.name}`,
+        `Chamar no WhatsApp: https://wa.me/${data.phone}`,
+        `Resumo do que o visitante quer saber:`,
+        summary,
       ].join("\n")
     ).catch((error) => integrationFailure("bitrix_im", error)),
   ]);

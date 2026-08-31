@@ -117,7 +117,7 @@ export async function createChatSession({ request, env, input }) {
         `📋 Card cadastrado agora pelo Atendimento NewSun IA no site — ${departmentLabel}`,
         `Protocolo: ${protocol}`,
         `Visitante: ${data.name}`,
-        `WhatsApp: +${data.phone} (wa.me/${data.phone})`,
+        `Chamar no WhatsApp: https://wa.me/${data.phone}`,
         `Card: ${cardUrl}`,
         `Você tem até 24h para chamar a pessoa no WhatsApp com as informações pedidas.`,
         bitrix.reused ? "(Reaproveitou o card já existente deste contato.)" : null,
@@ -213,7 +213,8 @@ export async function markSessionAbandoned(env, sessionToken) {
       `Visitante abandonou a tela — ${departmentLabel}`,
       `Protocolo: ${row.protocol}`,
       contact.name ? `Nome: ${contact.name}` : null,
-      `Contato agora só por WhatsApp${contact.phone ? ` (wa.me/${contact.phone})` : ""} ou e-mail${contact.email ? ` (${contact.email})` : ""}.`,
+      contact.phone ? `Chamar no WhatsApp: https://wa.me/${contact.phone}` : null,
+      `A interação pela tela do site não é mais possível — contato agora só por WhatsApp${contact.email ? ` ou e-mail (${contact.email})` : ""}.`,
     ].filter(Boolean).join("\n")
   ).catch(() => null);
 
