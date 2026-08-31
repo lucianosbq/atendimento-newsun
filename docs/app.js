@@ -61,6 +61,14 @@
       suggestions: ["Preciso falar com a imprensa", "Quero convidar a NewSun para um evento", "Quem é a NewSun?"]
     },
     {
+      id: "marketing",
+      label: "Marketing",
+      icon: "❖",
+      description: "Materiais de marketing, campanhas, conteúdo e uso de marca",
+      greeting: "Olá. Posso orientar sobre materiais de marketing e conteúdo institucional. Campanhas, parcerias de conteúdo e uso de marca serão encaminhados ao time de Marketing.",
+      suggestions: ["Quero propor uma parceria de conteúdo", "Preciso de material institucional", "Como usar a marca NewSun?"]
+    },
+    {
       id: "pessoas",
       label: "Pessoas e fornecedores",
       icon: "＋",
@@ -330,6 +338,20 @@
             { label: "Sou jornalista / imprensa", set: { key: "perfil", value: "imprensa" }, action: "handoff", reason: "URGENTE: solicitação de imprensa — encaminhar à Comunicação sem especulação" },
             { label: "Convidar a NewSun para um evento", set: { key: "assunto", value: "evento" }, action: "handoff", reason: "Convite de evento para avaliação da Comunicação" },
             { label: "Quem é a NewSun?", action: "ask", question: "Quem é a NewSun Energy?" },
+            { label: "Outra dúvida", action: "free" }
+          ]
+        }
+      }
+    },
+    marketing: {
+      start: "entrada",
+      steps: {
+        entrada: {
+          text: (d, p) => `Olá, ${firstName(p)}. Como posso ajudar com marketing?`,
+          options: [
+            { label: "Propor parceria de conteúdo", set: { key: "assunto", value: "parceria de conteúdo" }, action: "handoff", reason: "Proposta de parceria de conteúdo/marketing" },
+            { label: "Preciso de material institucional", action: "ask", question: "Como consigo material institucional da NewSun?" },
+            { label: "Como usar a marca NewSun", action: "ask", question: "Como posso usar a marca NewSun em material próprio?" },
             { label: "Outra dúvida", action: "free" }
           ]
         }

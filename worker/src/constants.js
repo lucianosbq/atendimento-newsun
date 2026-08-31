@@ -27,6 +27,10 @@ export const DEPARTMENTS = Object.freeze({
     label: "Institucional e imprensa",
     publicScope: "informações institucionais públicas, imprensa e eventos",
   },
+  marketing: {
+    label: "Marketing",
+    publicScope: "materiais de marketing, campanhas, conteúdo e identidade de marca",
+  },
   pessoas: {
     label: "Pessoas e fornecedores",
     publicScope: "carreiras, fornecedores e assuntos administrativos gerais",
