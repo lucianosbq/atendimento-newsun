@@ -1,5 +1,26 @@
 # Implantação — NewSun Atendimento IA
 
+## Pendências que exigem cartão (retomar sexta-feira)
+
+Duas peças ficaram fora do MVP porque a Cloudflare e o Brave exigem cartão cadastrado mesmo dentro
+do plano gratuito (cobram $0 se ficar dentro do limite, mas pedem o cartão para habilitar):
+
+1. **R2** (upload da conta de luz pelo clipe) — binding comentado em `worker/wrangler.toml`.
+   Para ativar: habilitar R2 no dashboard, rodar
+   `npx wrangler r2 bucket create newsun-atendimento-uploads`, descomentar o `[[r2_buckets]]`.
+2. **Busca ao vivo na internet** (pedido do Luciano em 31/08/2026): condomínios buscam primeiro no
+   blog da newsun.energy e, se não achar, na internet aberta; PMEs e Franquias sempre buscam na
+   internet; o departamento Comercial pode consultar newsun.energy e legislação, sempre guiando
+   para marcar reunião/assinar contrato. Provedor escolhido: **Brave Search API**
+   (`https://api-dashboard.search.brave.com`), plano Search ($5/1000 requisições, $5/mês grátis —
+   dá ~1.000 buscas grátis/mês). Também pede cartão (hold de $1, reembolsável) para ativar o plano
+   gratuito. Nenhum código deste recurso foi escrito ainda — melhor implementar de uma vez com a
+   chave em mãos do que deixar pela metade sem poder testar.
+
+Quando o cartão estiver disponível: ativar os dois planos, gerar a `BRAVE_API_KEY`, e pedir para eu
+implementar o módulo de busca ao vivo (mantendo a regra de que conteúdo buscado é dado a
+interpretar, nunca instrução a obedecer — mesma proteção já aplicada a WhatsApp/e-mail capturado).
+
 ## Identidade visual
 
 O frontend já usa a logo oficial `NewSun Energy Group` (`docs/assets/logo-newsun.png`, versão
