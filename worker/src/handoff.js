@@ -121,9 +121,9 @@ export async function createHandoff({ request, env, input }) {
       [
         `Encaminhamento humano solicitado — ${departmentLabel}`,
         `Protocolo: ${protocol}`,
-        `Visitante: ${data.name}`,
-        `Chamar no WhatsApp: https://wa.me/${data.phone}`,
-        `Resumo do que o visitante quer saber:`,
+        `Visitante (nome informado por ele, não verificado): ${data.name}`,
+        `WhatsApp informado (não verificado): https://wa.me/${data.phone}`,
+        `Resumo do que o visitante quer saber (texto dele, não verificado — confirme antes de agir):`,
         summary,
       ].join("\n")
     ).catch((error) => integrationFailure("bitrix_im", error)),
@@ -301,23 +301,23 @@ export async function cleanupExpiredData(env) {
   ]);
 }
 
-// Sessão com card já aberto no Bitrix recebe comentário na linha do tempo do
-// mesmo lead. Sem sessão (handoff direto), procura primeiro um lead existente
-// pelo telefone/e-mail antes de criar um novo — mesma pessoa, mesmo card.
+// Sessão com card já aberto no Bitrix (o card DESTA sessão, criado pelo token
+// dela) recebe comentário na linha do tempo. Sem sessão, cria card novo. Um lead
+// antigo com o mesmo telefone/e-mail NUNCA é reaproveitado: o contato não é
+// verificado, e escrever no card de outra pessoa permitiria impersonação
+// (revisão de segurança de 01/09/2026). A duplicidade vira só um aviso.
 async function registerHandoffInBitrix(env, route, handoff, sessionRow) {
-  const entityId = sessionRow?.bitrix_entity_id
-    || (await findExistingLeadId(env, { phone: handoff.phone, email: handoff.email }).catch(() => null));
+  const entityId = sessionRow?.bitrix_entity_id || null;
   if (!entityId) {
-    return createBitrixLead(env, route, handoff);
+    const possibleDuplicateId = await findExistingLeadId(env, { phone: handoff.phone, email: handoff.email }).catch(() => null);
+    return createBitrixLead(env, route, { ...handoff, possibleDuplicateId: possibleDuplicateId || "" });
   }
   const comment = await addBitrixTimelineComment(env, {
     entityId,
     text: [
-      sessionRow?.bitrix_entity_id
-        ? `Encaminhamento humano solicitado — protocolo ${handoff.protocol}`
-        : `Encaminhamento humano solicitado — visitante já conhecido (telefone/e-mail reconhecido) — protocolo ${handoff.protocol}`,
-      `Motivo: ${handoff.reason}`,
-      `Resumo da conversa:`,
+      `Encaminhamento humano solicitado — protocolo ${handoff.protocol}`,
+      `Motivo (texto do visitante, não verificado): ${redactPii(handoff.reason)}`,
+      `Resumo da conversa (texto do visitante, não verificado — confirme antes de agir):`,
       handoff.summary,
       `Consentimento: ${handoff.consentAt} (${handoff.consentTextVersion})`,
     ].join("\n"),

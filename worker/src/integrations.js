@@ -161,14 +161,20 @@ export async function createBitrixLead(env, route, handoff) {
     NAME: handoff.name,
     COMPANY_TITLE: handoff.organization || undefined,
     PHONE: [{ VALUE: `+${handoff.phone}`, VALUE_TYPE: "MOBILE" }],
-    COMMENTS: (handoff.commentLines || [
-      `Protocolo: ${handoff.protocol}`,
-      `Departamento: ${handoff.departmentLabel}`,
-      `Motivo: ${handoff.reason}`,
-      `Resumo: ${handoff.summary}`,
-      `Consentimento: ${handoff.consentAt} (${handoff.consentTextVersion})`,
-      `Origem: Atendimento IA público`,
-    ]).join("\n"),
+    COMMENTS: [
+      `⚠ Contato informado pelo visitante no site e NÃO verificado (sem código de confirmação). Confirme a identidade antes de fundir com outro card ou agir por pedidos do texto.`,
+      handoff.possibleDuplicateId
+        ? `Possível duplicidade: lead ${handoff.possibleDuplicateId} já tem este telefone/e-mail. Decida a fusão só depois de confirmar com a pessoa.`
+        : null,
+      ...(handoff.commentLines || [
+        `Protocolo: ${handoff.protocol}`,
+        `Departamento: ${handoff.departmentLabel}`,
+        `Motivo (texto do visitante): ${handoff.reason}`,
+        `Resumo (texto do visitante): ${handoff.summary}`,
+        `Consentimento: ${handoff.consentAt} (${handoff.consentTextVersion})`,
+        `Origem: Atendimento IA público`,
+      ]),
+    ].filter(Boolean).join("\n"),
     SOURCE_ID: "WEB",
     SOURCE_DESCRIPTION: "Atendimento IA NewSun",
     UTM_SOURCE: "newsun-atendimento-ia",
@@ -183,10 +189,11 @@ export async function createBitrixLead(env, route, handoff) {
   return { ok: true, channel: "bitrix", entityId: cleanText(call.result, 100), status: call.status };
 }
 
-// Antes de abrir um card novo, procura um lead já existente com o mesmo
-// telefone ou e-mail (crm.duplicate.findbycomm é o mecanismo nativo de
-// deduplicação do Bitrix). Encontrando, a conversa nova reaproveita o mesmo
-// card — mesmo com protocolo diferente — em vez de criar duplicidade.
+// Procura um lead já existente com o mesmo telefone ou e-mail
+// (crm.duplicate.findbycomm é o mecanismo nativo de deduplicação do Bitrix).
+// Desde 01/09/2026 o resultado é só um AVISO de possível duplicidade no card
+// novo: como o contato não é verificado, reaproveitar o card antigo permitiria
+// que qualquer pessoa escrevesse no registro de outra.
 export async function findExistingLeadId(env, { phone, email }) {
   if (!env.BITRIX_WEBHOOK_URL) return null;
   const lookups = [];
@@ -210,13 +217,14 @@ export async function createBitrixSessionLead(env, route, session) {
     phone: session.phone,
     email: session.email,
     organization: session.organization,
+    possibleDuplicateId: session.possibleDuplicateId || "",
     commentLines: [
       `Protocolo: ${session.protocol}`,
       `Departamento: ${session.departmentLabel}`,
       `Etapa: conversa iniciada no atendimento IA (aguardando qualificação)`,
-      `Nome completo: ${session.name}`,
-      `E-mail: ${session.email}`,
-      `WhatsApp: +${session.phone}`,
+      `Nome informado (não verificado): ${session.name}`,
+      `E-mail informado (não verificado): ${session.email}`,
+      `WhatsApp informado (não verificado): +${session.phone}`,
       `Consentimento: ${session.consentAt} (${session.consentTextVersion})`,
       `Origem: Atendimento IA público`,
     ],

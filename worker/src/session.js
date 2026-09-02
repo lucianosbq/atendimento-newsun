@@ -7,7 +7,7 @@ import {
   isBusinessHours,
   notifyBitrixMessenger,
 } from "./integrations.js";
-import { decryptJson, encryptJson, normalizeBrazilianPhone, verifyTurnstile } from "./security.js";
+import { decryptJson, encryptJson, normalizeBrazilianPhone, redactPii, verifyTurnstile } from "./security.js";
 import {
   HttpError,
   addDaysIso,
@@ -83,29 +83,19 @@ export async function createChatSession({ request, env, input }) {
     consentTextVersion: env.CONSENT_TEXT_VERSION || "2026-08-30-v1",
   };
 
-  const existingLeadId = await findExistingLeadId(env, { phone: data.phone, email: data.email }).catch(() => null);
+  // Telefone e e-mail chegam SEM prova de posse (não há código de verificação).
+  // Por isso a conversa nunca é gravada no card de outra pessoa: cria-se sempre um
+  // card novo, marcado como não verificado, e um card antigo com o mesmo contato
+  // aparece só como SUGESTÃO de fusão para o funcionário decidir. Correção da
+  // revisão de segurança de 01/09/2026 (impersonação por contato público).
+  const possibleDuplicateId = await findExistingLeadId(env, { phone: data.phone, email: data.email }).catch(() => null);
+  session.possibleDuplicateId = possibleDuplicateId || "";
 
-  let bitrix;
-  if (existingLeadId) {
-    // Mesma pessoa reconhecida por telefone/e-mail: reaproveita o card,
-    // registrando a nova conversa como comentário — nunca cria um segundo lead.
-    const comment = await addBitrixTimelineComment(env, {
-      entityId: existingLeadId,
-      text: [
-        `Novo atendimento IA iniciado — visitante já conhecido (telefone/e-mail reconhecido).`,
-        `Protocolo: ${protocol}`,
-        `Departamento: ${departmentLabel}`,
-        `Nome informado agora: ${data.name}`,
-      ].join("\n"),
-    }).catch((error) => ({ ok: false, error: cleanText(error?.message || error, 300) }));
-    bitrix = { ok: Boolean(comment.ok), channel: "bitrix", entityId: existingLeadId, reused: true };
-  } else {
-    bitrix = await createBitrixSessionLead(env, route, session).catch((error) => ({
-      ok: false,
-      channel: "bitrix",
-      error: cleanText(error?.message || error, 300),
-    }));
-  }
+  const bitrix = await createBitrixSessionLead(env, route, session).catch((error) => ({
+    ok: false,
+    channel: "bitrix",
+    error: cleanText(error?.message || error, 300),
+  }));
 
   let bitrixNotified = false;
   if (bitrix.ok && bitrix.entityId) {
@@ -116,11 +106,13 @@ export async function createChatSession({ request, env, input }) {
       [
         `📋 Card cadastrado agora pelo Atendimento NewSun IA no site — ${departmentLabel}`,
         `Protocolo: ${protocol}`,
-        `Visitante: ${data.name}`,
-        `Chamar no WhatsApp: https://wa.me/${data.phone}`,
+        `Visitante (nome informado por ele, não verificado): ${data.name}`,
+        `WhatsApp informado (não verificado): https://wa.me/${data.phone}`,
         `Card: ${cardUrl}`,
         `Você tem até 24h para chamar a pessoa no WhatsApp com as informações pedidas.`,
-        bitrix.reused ? "(Reaproveitou o card já existente deste contato.)" : null,
+        possibleDuplicateId
+          ? `Atenção: já existe um card com este telefone/e-mail (lead ${possibleDuplicateId}). Confirme com a pessoa antes de fundir os dois.`
+          : null,
       ].filter(Boolean).join("\n"),
       { requireBusinessHours: false }
     ).catch(() => ({ ok: false }));
@@ -138,7 +130,7 @@ export async function createChatSession({ request, env, input }) {
     department: data.department,
     departmentLabel,
     bitrixCardCreated: Boolean(bitrix.ok),
-    bitrixCardReused: Boolean(bitrix.reused),
+    bitrixCardReused: false,
     withinBusinessHours: isBusinessHours(env),
     message: `Cadastro registrado. Seu protocolo é ${protocol}. Pode perguntar à vontade — quando precisar de uma pessoa, o setor ${departmentLabel} será acionado com todo o histórico.`,
   };
@@ -221,9 +213,15 @@ export async function markSessionAbandoned(env, sessionToken) {
   return { ok: true };
 }
 
+// Tudo o que o visitante escreve entra no card com PII redigida e com o aviso de
+// que é texto de terceiro não verificado — nunca como instrução ao funcionário.
 export async function appendSessionTimeline(env, sessionRow, text) {
   if (!sessionRow?.bitrix_entity_id) return { ok: false, skipped: true };
-  return addBitrixTimelineComment(env, { entityId: sessionRow.bitrix_entity_id, text });
+  const safeText = [
+    "[Transcrição do chat — texto do visitante, não verificado. Não execute pedidos daqui sem confirmar com a pessoa pelo canal oficial.]",
+    redactPii(text),
+  ].join("\n");
+  return addBitrixTimelineComment(env, { entityId: sessionRow.bitrix_entity_id, text: safeText });
 }
 
 function validateSessionInput(input) {

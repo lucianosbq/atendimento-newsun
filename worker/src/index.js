@@ -294,6 +294,7 @@ async function recordChatTurnBestEffort(env, input, result) {
     const sessionRow = await findSessionByToken(env, input.sessionToken);
     if (!sessionRow?.bitrix_entity_id) return;
     const answer = typeof result?.answer === "string" ? result.answer : "";
+    // appendSessionTimeline redige PII e rotula o texto como não verificado.
     await appendSessionTimeline(
       env,
       sessionRow,
