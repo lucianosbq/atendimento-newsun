@@ -213,8 +213,11 @@ function validateChatInput(input) {
   if (!message) throw new HttpError(400, "Escreva uma mensagem.", "empty_message");
   if (message.length < 2) throw new HttpError(400, "A mensagem é curta demais.", "message_too_short");
 
+  // 44 itens (~22 perguntas) — folga acima do limite de 10 perguntas do llm.js, que conta
+  // sobre este history. O prompt do modelo em si continua enxuto: buildMessages corta para
+  // as últimas 10 entradas antes de montar as messages, isto aqui só afeta a contagem.
   const history = Array.isArray(input?.history)
-    ? input.history.slice(-12).map((item) => ({
+    ? input.history.slice(-44).map((item) => ({
         role: item?.role === "assistant" ? "assistant" : "user",
         content: cleanText(item?.content, 1600),
       })).filter((item) => item.content)

@@ -11,16 +11,23 @@ import { formatRagContext, retrievePublicContext } from "./rag.js";
 import { redactPii } from "./security.js";
 import { cleanText, isPlainObject, safeJsonParse, uniqueStrings } from "./utils.js";
 
+// Depois de MAX_FREE_QUESTIONS perguntas do visitante na mesma conversa, toda resposta
+// passa a sugerir atendimento humano — o assistente resolve o básico rápido, mas não
+// substitui uma pessoa numa conversa longa e detalhada.
+const MAX_FREE_QUESTIONS = 10;
+
 export async function answerPublicChat(env, input) {
   const department = input.department;
   const message = cleanText(input.message, 2000);
+  const questionCount = countUserQuestions(input.history) + 1;
+
   const early = deterministicGuard(message, department);
-  if (early) return early;
+  if (early) return applyQuestionLimit(early, questionCount);
 
   const query = `${DEPARTMENTS[department].label}: ${redactPii(message)}`;
   const rag = await retrievePublicContext(env, query, department);
   if (!rag.chunks.length) {
-    return {
+    return applyQuestionLimit({
       answer: "Não encontrei conteúdo público aprovado suficiente para responder isso com segurança. Não vou preencher a lacuna com uma suposição. Posso encaminhar sua dúvida ao departamento responsável com protocolo.",
       confidence: "low",
       needsHuman: true,
@@ -29,7 +36,7 @@ export async function answerPublicChat(env, input) {
       suggestedQuestions: ["Quais informações posso enviar com segurança?", "Como funciona o encaminhamento?"],
       sources: [],
       priority: "normal",
-    };
+    }, questionCount);
   }
 
   const messages = buildMessages(input, rag.chunks);
@@ -67,7 +74,7 @@ export async function answerPublicChat(env, input) {
     normalized.humanReason = "A solicitação exige validação de condições específicas";
   }
 
-  return {
+  return applyQuestionLimit({
     answer,
     confidence,
     needsHuman: Boolean(normalized.needsHuman),
@@ -76,6 +83,24 @@ export async function answerPublicChat(env, input) {
     suggestedQuestions: uniqueStrings(normalized.suggestedQuestions, 3),
     sources: sourceObjects.map((source) => source.title),
     priority: ["normal", "priority", "urgent"].includes(normalized.priority) ? normalized.priority : "normal",
+  }, questionCount);
+}
+
+// Conta só as perguntas do visitante (role "user") já feitas nesta conversa — a mensagem
+// atual ainda não está no history quando chega aqui, por isso quem chama soma +1.
+function countUserQuestions(history) {
+  if (!Array.isArray(history)) return 0;
+  return history.filter((item) => item?.role === "user").length;
+}
+
+function applyQuestionLimit(result, questionCount) {
+  if (questionCount < MAX_FREE_QUESTIONS) return result;
+  const suggestion = "Já trocamos bastante mensagens por aqui. Acho melhor te conectar agora com um especialista de verdade, que pode olhar seu caso com calma. Quer que eu encaminhe?";
+  return {
+    ...result,
+    needsHuman: true,
+    humanReason: result.humanReason || "Conversa já passou de 10 perguntas — melhor um especialista assumir a partir daqui",
+    answer: `${result.answer}\n\n${suggestion}`,
   };
 }
 
