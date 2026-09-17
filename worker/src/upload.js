@@ -100,7 +100,7 @@ export async function handleAccountUpload({ request, env }) {
     `Arquivo: ${filename} (${sizeKb} KB, ${file.type})`,
     secureLink
       ? `Download seguro: ${secureLink} (expira com a retenção de ${retentionDays} dias)`
-      : "Arquivo analisado na hora, sem armazenamento (R2 desativado) — peça a conta ao cliente pelo WhatsApp.",
+      : "A conta está anexada a este comentário (armazenamento externo R2 desativado).",
   ];
   if (extracao?.consumoKwh) {
     linhasResumo.push(
@@ -113,10 +113,14 @@ export async function handleAccountUpload({ request, env }) {
     );
   }
 
+  // A conta vai ANEXADA ao mesmo card, como arquivo de verdade no comentário da
+  // linha do tempo (pedido do Luciano, 17/09/2026) — independente do R2.
   if (session.bitrix_entity_id) {
+    const anexo = { name: filename, base64: paraBase64(new Uint8Array(await file.arrayBuffer())) };
     await addBitrixTimelineComment(env, {
       entityId: session.bitrix_entity_id,
       text: linhasResumo.join("\n"),
+      files: [anexo],
     }).catch(() => null);
   }
   const route = getDepartmentRoute(env, session.department);
@@ -178,6 +182,17 @@ export async function cleanupExpiredUploads(env) {
     await env.UPLOADS.delete(row.r2_key).catch(() => null);
     await env.DB.prepare("DELETE FROM session_uploads WHERE id = ?").bind(row.id).run();
   }
+}
+
+// Converte os bytes do arquivo em base64 por blocos — String.fromCharCode com
+// o arquivo inteiro estoura a pilha em anexos de vários MB.
+function paraBase64(bytes) {
+  let bin = "";
+  const bloco = 0x8000;
+  for (let i = 0; i < bytes.length; i += bloco) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + bloco));
+  }
+  return btoa(bin);
 }
 
 function sanitizeFilename(name, extension) {

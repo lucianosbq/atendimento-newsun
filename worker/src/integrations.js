@@ -231,17 +231,20 @@ export async function createBitrixSessionLead(env, route, session) {
   });
 }
 
-export async function addBitrixTimelineComment(env, { entityId, entityType = "lead", text }) {
+export async function addBitrixTimelineComment(env, { entityId, entityType = "lead", text, files = [] }) {
   if (!env.BITRIX_WEBHOOK_URL || !entityId) {
     return { ok: false, skipped: true, channel: "bitrix_timeline", reason: "not_configured" };
   }
-  const call = await bitrixCall(env, "crm.timeline.comment.add", {
-    fields: {
-      ENTITY_ID: entityId,
-      ENTITY_TYPE: entityType,
-      COMMENT: truncate(String(text || ""), 4000),
-    },
-  });
+  const fields = {
+    ENTITY_ID: entityId,
+    ENTITY_TYPE: entityType,
+    COMMENT: truncate(String(text || ""), 4000),
+  };
+  // Anexa arquivos reais ao card: FILES = [["nome.ext", "base64"], ...]
+  if (Array.isArray(files) && files.length) {
+    fields.FILES = files.map((file) => [file.name, file.base64]);
+  }
+  const call = await bitrixCall(env, "crm.timeline.comment.add", { fields });
   return { ...call, channel: "bitrix_timeline" };
 }
 
