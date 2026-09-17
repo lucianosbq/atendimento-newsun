@@ -1384,6 +1384,14 @@
   // cerca de 1 segundo, independente do tamanho — mensagens curtas "digitam"
   // mais devagar, mensagens longas mais rápido, sem travar o chat.
   function typeWords(el, text) {
+    // Página em segundo plano (ex.: visitante voltando do seletor de arquivos
+    // no celular): temporizador fica suspenso e a mensagem pareceria travada —
+    // mostra o texto inteiro de uma vez.
+    if (document.visibilityState !== "visible") {
+      el.textContent = text;
+      scrollMessages();
+      return Promise.resolve();
+    }
     const words = text.split(/(\s+)/).filter((part) => part !== "");
     const targetTotalMs = 1000;
     const wordDelay = Math.max(18, Math.min(90, targetTotalMs / Math.max(1, words.length)));

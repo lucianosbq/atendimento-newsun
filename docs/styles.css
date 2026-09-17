@@ -342,7 +342,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   display: flex;
   gap: 11px;
   margin-bottom: 18px;
-  animation: message-in 0.28s ease;
+  /* Sem animação de entrada: no iOS, bolha criada com a página em segundo
+     plano (ex.: voltando do seletor de arquivos) congelava no quadro
+     invisível até um toque — mesmo defeito da tela inicial. */
 }
 .message.user { justify-content: flex-end; }
 .avatar {
