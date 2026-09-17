@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import zlib from "node:zlib";
-import { calcularSimulacao, extrairJpegsDoPdf, extrairTextoDoPdf, normalizarExtracao, resolverTarifa } from "../src/simulacao.js";
+import { calcularSimulacao, extrairJpegsDoPdf, extrairPorRegex, extrairTextoDoPdf, normalizarExtracao, resolverTarifa } from "../src/simulacao.js";
 
 // Valores do material oficial "A economia em reais" (Enel SP, B3 convencional,
 // 5.000 kWh/mês, CIP R$ 343,41): a simulação tem de reproduzi-los ao centavo.
@@ -96,6 +96,23 @@ test("extrairTextoDoPdf infla FlateDecode e junta os literais de texto", async (
   const texto = await extrairTextoDoPdf(new Uint8Array(pdf));
   assert.match(texto, /7\.102,800 kWh/);
   assert.match(texto, /TUSD 0,56282/);
+});
+
+test("extrairPorRegex lê as linhas de itens de fatura no padrão ANEEL", () => {
+  // Trecho sintético no layout real da fatura Enel SP (sem dados pessoais).
+  const texto = "SAO PAULO/SP www.eneldistribuicaosp.com Itens de Fatura Unid. Quant. (kWh) Preço unit (R$) com tributos " +
+    "USO SIST. DISTR. (TUSD) KWH 7.102,800 0,56282 3.997,60 206,51 " +
+    "ENERGIA (TE) KWH 7.102,800 0,38100 2.706,17 139,79 " +
+    "COSIP - SÃO PAULO - MUNICIPAL 494,50 0,01";
+  const r = extrairPorRegex(texto);
+  assert.equal(r.consumoKwh, 7102.8);
+  assert.equal(r.tusdUnit, 0.56282);
+  assert.equal(r.teUnit, 0.381);
+  assert.equal(r.cip, 494.5);
+  assert.equal(r.distribuidora, "Enel SP");
+  assert.equal(r.uf, "SP");
+  // sem a linha TUSD não inventa nada
+  assert.equal(extrairPorRegex("fatura qualquer sem itens"), null);
 });
 
 test("normalizarExtracao aceita número em formato brasileiro", () => {

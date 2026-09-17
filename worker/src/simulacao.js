@@ -246,6 +246,16 @@ async function analisarPorTextoExtraido(env, file) {
     }
     if (!texto || texto.length < 40) return null;
 
+    // Leitura determinística primeiro: as linhas de itens de fatura seguem o
+    // padrão ANEEL (TUSD/TE com quantidade e preço unitário) — sem depender de
+    // modelo, que tropeça em número brasileiro. O LLM fica para layouts fora
+    // do padrão.
+    const porRegex = extrairPorRegex(texto);
+    if (porRegex?.consumoKwh) {
+      console.log(`[leitura-conta] extração por padrão de fatura: consumo=${porRegex.consumoKwh} tusd=${porRegex.tusdUnit ?? "nulo"} te=${porRegex.teUnit ?? "nulo"} cip=${porRegex.cip ?? "nulo"}`);
+      return porRegex;
+    }
+
     const result = await env.AI.run(env.MODEL_CHAT || "@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
       messages: [
         { role: "system", content: EXTRACAO_PROMPT },
@@ -337,6 +347,41 @@ export function normalizarExtracao(json) {
     teUnit: ehTarifaUnitariaValida(te) ? te : null,
     mesReferencia: cleanText(json.mes_referencia, 20),
   };
+}
+
+// Extração determinística pelas linhas de itens de fatura (padrão ANEEL):
+// "USO SIST. DISTR. (TUSD) KWH <quantidade> <preço unit com tributos> …"
+// "ENERGIA (TE) KWH <quantidade> <preço unit com tributos> …"
+// A quantidade da linha TUSD é o consumo faturado do mês.
+export function extrairPorRegex(texto) {
+  const t = String(texto || "");
+  const tusdLinha = t.match(/(?:USO\s+SIST\.?\s*DISTR\.?[^K]{0,40}|TUSD[^K]{0,20})KWH\s+([\d.,]+)\s+([\d.,]+)/i);
+  const teLinha = t.match(/ENERGIA(?:\s*\(?TE\)?)?[^K]{0,20}KWH\s+([\d.,]+)\s+([\d.,]+)/i);
+  if (!tusdLinha) return null;
+
+  const consumo = numeroBr(tusdLinha[1]);
+  const tusd = numeroBr(tusdLinha[2]);
+  const te = teLinha ? numeroBr(teLinha[2]) : NaN;
+  const cipLinha = t.match(/(?:COSIP|CONTRIB[^\n]{0,30}ILUM|C\.?I\.?P\.?)[^\d\n-]{0,40}([\d.,]+)/i);
+  const ufLinha = t.match(/\/\s*([A-Z]{2})\b/);
+
+  const distribuidoras = [
+    [/enel|eletropaulo/i, "Enel SP"], [/cemig/i, "Cemig"], [/cpfl/i, "CPFL"], [/\blight\b/i, "Light"],
+    [/neoenergia|coelba|celpe|cosern|elektro/i, "Neoenergia"], [/equatorial/i, "Equatorial"],
+    [/energisa/i, "Energisa"], [/celesc/i, "Celesc"], [/copel/i, "Copel"], [/edp/i, "EDP"],
+  ];
+  const dist = distribuidoras.find(([re]) => re.test(t));
+
+  return normalizarExtracao({
+    distribuidora: dist ? dist[1] : "",
+    uf: ufLinha ? ufLinha[1] : "",
+    consumo_kwh: consumo,
+    valor_total: 0,
+    cip: cipLinha ? numeroBr(cipLinha[1]) : 0,
+    tusd_unit: tusd,
+    te_unit: te,
+    mes_referencia: "",
+  });
 }
 
 // O modelo às vezes devolve número em formato brasileiro ("7.102,80") apesar da
