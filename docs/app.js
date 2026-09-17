@@ -418,6 +418,8 @@
     input: byId("message-input"),
     attach: byId("attach-button"),
     fileInput: byId("file-input"),
+    fileCamera: byId("file-input-camera"),
+    fileGaleria: byId("file-input-galeria"),
     send: byId("send-button"),
     human: byId("human-button"),
     back: byId("back-button"),
@@ -507,12 +509,15 @@
       if (file) attachStartFile(file);
     });
 
-    els.attach.addEventListener("click", () => els.fileInput.click());
-    els.fileInput.addEventListener("change", () => {
-      const file = els.fileInput.files?.[0];
-      els.fileInput.value = "";
-      if (file) void uploadAccountFile(file);
-    });
+    els.attach.addEventListener("click", () => abrirEnvioDeConta());
+    for (const input of [els.fileInput, els.fileCamera, els.fileGaleria]) {
+      if (!input) continue;
+      input.addEventListener("change", () => {
+        const file = input.files?.[0];
+        input.value = "";
+        if (file) void uploadAccountFile(file);
+      });
+    }
 
     // Abandono da tela: ao sair da página (ou ficar 3 minutos com a aba
     // escondida), avisa o backend para registrar no card do Bitrix que o
@@ -682,7 +687,7 @@
       return;
     }
     if (option.action === "clip") {
-      els.fileInput.click();
+      abrirEnvioDeConta();
       return;
     }
     if (option.action === "ask") {
@@ -726,7 +731,7 @@
     } else if (!d.valorConta && !d.faixaConta) {
       cta.push({ label: "📊 Simular minha economia", run: () => runFlowStep(FLOWS.comercial.steps.valor_conta) });
     } else {
-      cta.push({ label: "📎 Enviar minha conta para o cálculo exato", run: () => els.fileInput.click() });
+      cta.push({ label: "📎 Enviar minha conta para o cálculo exato", run: () => abrirEnvioDeConta() });
     }
 
     cta.push({
@@ -992,12 +997,61 @@
     }
   }
 
+  // No celular, tocar no clipe abre um menu: tirar foto (câmera direta),
+  // escolher da galeria, ou enviar PDF/arquivo (pedido do Luciano, 17/09/2026).
+  // No computador, abre o seletor de arquivos direto, como sempre.
+  const DISPOSITIVO_TOQUE = (window.matchMedia?.("(pointer: coarse)")?.matches ?? false) ||
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+
+  function abrirEnvioDeConta() {
+    if (!DISPOSITIVO_TOQUE || !els.fileCamera || !els.fileGaleria) {
+      els.fileInput.click();
+      return;
+    }
+    els.suggestions.replaceChildren();
+    const opcoes = [
+      { label: "📷 Tirar foto da conta", input: els.fileCamera },
+      { label: "🖼️ Escolher da galeria", input: els.fileGaleria },
+      { label: "📄 Enviar PDF ou arquivo", input: els.fileInput },
+    ];
+    for (const opcao of opcoes) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "flow-option-button";
+      button.textContent = opcao.label;
+      button.addEventListener("click", () => {
+        els.suggestions.replaceChildren();
+        opcao.input.click();
+      });
+      els.suggestions.append(button);
+    }
+    scrollMessages();
+  }
+
+  // Foto de câmera de celular passa fácil de 8 MB: reduz no navegador antes de
+  // enviar (máx. 2400px no maior lado, JPEG 85%), sem pedir nada ao visitante.
+  async function comprimirImagem(file) {
+    const bitmap = await createImageBitmap(file);
+    const maior = Math.max(bitmap.width, bitmap.height);
+    const escala = Math.min(1, 2400 / maior);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * escala);
+    canvas.height = Math.round(bitmap.height * escala);
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+    if (!blob) throw new Error("compressão indisponível");
+    return new File([blob], (file.name || "conta").replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+  }
+
   async function uploadAccountFile(file) {
     if (!state.department || state.busy) return;
     const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
     if (!allowedTypes.includes(file.type)) {
       addMessage("assistant", "Formato não aceito. Envie a conta em PDF, JPG ou PNG.");
       return;
+    }
+    if (/^image\//.test(file.type) && file.size > 8 * 1024 * 1024) {
+      file = await comprimirImagem(file).catch(() => file);
     }
     if (file.size > 8 * 1024 * 1024) {
       addMessage("assistant", "O arquivo passa de 8 MB. Envie uma foto menor ou o PDF original da conta.");

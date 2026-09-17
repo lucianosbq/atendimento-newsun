@@ -122,6 +122,9 @@
 
           <form id="chat-form" class="composer" autocomplete="off">
             <input id="file-input" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" hidden>
+            <!-- Celular: câmera direta (capture) e galeria separadas — o menu aparece ao tocar no clipe -->
+            <input id="file-input-camera" type="file" accept="image/*" capture="environment" hidden>
+            <input id="file-input-galeria" type="file" accept="image/jpeg,image/png" hidden>
             <button id="attach-button" class="attach-button" type="button" aria-label="Enviar conta de energia (PDF, JPG ou PNG)" title="Enviar conta de energia (PDF, JPG ou PNG)">📎</button>
             <label class="sr-only" for="message-input">Digite sua dúvida</label>
             <textarea
