@@ -781,6 +781,26 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   .sim-proj { gap: 5px; }
   .sim-proj-valor { font-size: 0.54rem; }
   .sim-destaque-valor { font-size: 1.4rem; }
+
+  /* Chat na altura REAL do celular: topo compacto, mensagens flexíveis e o
+     campo de digitar sempre visível (achado do Luciano, 17/09/2026). */
+  .chat-view { min-height: 0; }
+  .chat-topbar { gap: 8px; row-gap: 4px; padding-bottom: 8px; }
+  .chat-topbar h1 { font-size: 0.88rem; }
+  .chat-context { gap: 8px; }
+  .chat-context small { font-size: 0.58rem; }
+  .context-icon { width: 30px; height: 30px; border-radius: 9px; font-size: 0.95rem; }
+  .icon-button { width: 34px; height: 34px; font-size: 1.05rem; }
+  .protocol-chip { max-width: 58vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.6rem; }
+  .chat-layout { margin-top: 8px; }
+  .conversation-column {
+    min-height: 0;
+    height: calc(100vh - 235px);
+    height: calc(100dvh - 235px);
+    border-radius: 18px;
+  }
+  .messages { min-height: 0; max-height: none; padding: 14px 12px 6px; }
+  .bubble { padding: 10px 12px; }
 }
 
 
