@@ -232,12 +232,17 @@ async function analisarPorTextoExtraido(env, file) {
     let texto = "";
     if (file.type === "application/pdf") {
       texto = cleanText(await extrairTextoDoPdf(new Uint8Array(await file.arrayBuffer())), 12_000);
+      console.log(`[leitura-conta] extração própria do PDF: ${texto.length} caracteres`);
     }
     if ((!texto || texto.length < 40) && typeof env.AI.toMarkdown === "function") {
       const convertido = await env.AI.toMarkdown([
         { name: cleanText(file.name, 80) || "conta", blob: new Blob([await file.arrayBuffer()], { type: file.type }) },
-      ]).catch(() => null);
+      ]).catch((error) => {
+        console.error("[leitura-conta] toMarkdown falhou", error);
+        return null;
+      });
       texto = cleanText(convertido?.[0]?.data, 12_000);
+      console.log(`[leitura-conta] toMarkdown: ${texto.length} caracteres`);
     }
     if (!texto || texto.length < 40) return null;
 
@@ -250,9 +255,11 @@ async function analisarPorTextoExtraido(env, file) {
       max_tokens: 320,
     });
     const resposta = typeof result === "string" ? result : result?.response || "";
-    return normalizarExtracao(extrairJson(resposta));
+    const extracao = normalizarExtracao(extrairJson(resposta));
+    console.log(`[leitura-conta] extração estruturada: consumo=${extracao?.consumoKwh ?? "nulo"} tusd=${extracao?.tusdUnit ?? "nulo"}`);
+    return extracao;
   } catch (error) {
-    console.error("analisarPorTextoExtraido falhou", error);
+    console.error("[leitura-conta] analisarPorTextoExtraido falhou", String(error));
     return null;
   }
 }
@@ -261,8 +268,7 @@ async function analisarPorTextoExtraido(env, file) {
 // FlateDecode e junta os literais de texto (…) dos operadores Tj/TJ.
 // Cobre PDF digital de fatura; PDF escaneado não tem texto e segue para a visão.
 export async function extrairTextoDoPdf(bytes) {
-  const decoder = new TextDecoder("latin1");
-  const s = decoder.decode(bytes);
+  const s = latin1(bytes);
   const textos = [];
   // "stream" ancorado na quebra de linha: a sequência solta aparece também
   // dentro de dados binários comprimidos e desalinharia a varredura.
@@ -273,7 +279,7 @@ export async function extrairTextoDoPdf(bytes) {
     const fim = s.indexOf("endstream", inicio);
     if (fim < 0) break;
     try {
-      const inflado = decoder.decode(await inflar(bytes.subarray(inicio, fim)));
+      const inflado = latin1(await inflar(bytes.subarray(inicio, fim)));
       // Só stream de conteúdo de página (bloco de texto BT…ET); o resto — fontes,
       // XML, imagens — também tem parênteses e enterraria o texto útil em lixo.
       if (!inflado.includes("BT")) continue;
@@ -287,6 +293,17 @@ export async function extrairTextoDoPdf(bytes) {
     .join("\n")
     .replace(/\\(\d{3})/g, (_, octal) => String.fromCharCode(parseInt(octal, 8)))
     .replace(/\\([()\\])/g, "$1");
+}
+
+// Decodificação latin1 sem TextDecoder: o runtime dos Workers não garante
+// suporte a "latin1" (só UTF-8), e latin1 é exatamente byte → código do caractere.
+function latin1(bytes) {
+  let texto = "";
+  const bloco = 0x8000;
+  for (let i = 0; i < bytes.length; i += bloco) {
+    texto += String.fromCharCode(...bytes.subarray(i, i + bloco));
+  }
+  return texto;
 }
 
 async function inflar(bruto) {
