@@ -239,6 +239,36 @@
       "approvedBy": "Luciano Souza (aprovação em sessão — generalização de padrão comercial recorrente)",
       "approvedAt": "2026-08-31T18:30:00-03:00",
       "content": "É muito comum que a decisão final não seja só do síndico, e sim do conselho ou da assembleia do condomínio. Nesse caso, a resposta correta é apoiar esse processo: oferecer um estudo pronto, com a economia estimada em números claros, que o síndico ou administrador possa levar para apresentar ao conselho ou à assembleia. Isso facilita a decisão coletiva e mostra que a NewSun entende como funciona a gestão condominial, sem tentar pular etapas do processo interno do condomínio."
+    },
+    {
+      "sourceId": "newsun-gd-baixa-tensao-v1",
+      "title": "Geração distribuída de baixa tensão — o modelo por trás da assinatura",
+      "sourceUrl": "https://newsun.energy/faq",
+      "department": "comercial",
+      "content": "A energia por assinatura da NewSun opera dentro do modelo brasileiro de geração distribuída (GD): usinas de fontes renováveis (solar e biogás) geram energia e a injetam na rede da distribuidora; essa geração vira créditos de energia que abatem a conta do cliente. O modelo tem segurança regulatória prevista na legislação brasileira de geração distribuída. A NewSun atende clientes em baixa ou média tensão (Classes A e B), com faturas a partir de R$ 1.500 por mês — o perfil típico de condomínios residenciais e comerciais, pequenas e médias empresas e franquias. O cliente não compra usina nem instala equipamento: ele assina uma cota de geração e recebe os créditos direto na fatura da distribuidora, que continua responsável pela entrega física da energia. Sem obra, sem manutenção, sem investimento inicial. A viabilidade de cada unidade depende da localidade, da distribuidora e do perfil de consumo — a confirmação é feita por um especialista na análise gratuita.",
+      "approvedBy": "Luciano Querido (CMO) — transcrição do conteúdo público do site newsun.energy, aprovada em sessão de 17/09/2026",
+      "approvedAt": "2026-09-17T16:00:00-03:00",
+      "visibility": "public"
+    },
+    {
+      "sourceId": "newsun-como-funciona-5-etapas-v1",
+      "title": "Como funciona na prática — as 5 etapas da assinatura",
+      "sourceUrl": "https://newsun.energy/como-funciona",
+      "department": "comercial",
+      "content": "O caminho do cliente NewSun tem 5 etapas. 1) Começo sem custo e sem burocracia: o cliente informa os dados, a NewSun analisa o histórico de consumo e monta um plano personalizado, sem compromisso. 2) Energia limpa em forma de crédito: fontes renováveis como sol, água, vento e resíduos orgânicos geram eletricidade que vira créditos para o cliente. 3) Créditos aplicados automaticamente: a distribuidora regional aplica os créditos, abatidos direto na fatura. 4) Conta menor todo mês: o desconto chega automaticamente, sem taxas extras e com tarifa previsível. 5) Acompanhamento em tempo real: a plataforma Energy Club mostra consumo, créditos e economia com transparência total. Comparação com placa solar própria: a assinatura tem zero investimento, sem manutenção, adesão 100% digital, implementação rápida e economia mensal previsível — enquanto a placa própria exige investimento alto, manutenção e obra demorada, com economia variável. Números públicos da NewSun: desconto médio de 30% na conta de luz, 8 anos de mercado, matriz diversificada (solar e biogás) e 8 selos de qualidade e sustentabilidade.",
+      "approvedBy": "Luciano Querido (CMO) — transcrição do conteúdo público do site newsun.energy, aprovada em sessão de 17/09/2026",
+      "approvedAt": "2026-09-17T16:00:00-03:00",
+      "visibility": "public"
+    },
+    {
+      "sourceId": "newsun-segmentos-condominio-pme-franquia-v1",
+      "title": "Para quem é — condomínios, PMEs e franquias",
+      "sourceUrl": "https://newsun.energy/como-funciona",
+      "department": "comercial",
+      "content": "A NewSun atende três perfis principais. CONDOMÍNIOS residenciais e comerciais: a assinatura reduz a conta de energia da área comum (elevadores, bombas, portões, iluminação, câmeras, interfones) sem obra e sem mexer na estrutura do prédio; para síndicos e administradoras, a economia vira resultado visível de gestão, previsibilidade de orçamento e diferenciação profissional; como não há instalação, imóvel alugado não precisa de autorização do proprietário. PEQUENAS E MÉDIAS EMPRESAS: fatura a partir de R$ 1.500 por mês, operação 100% digital, sem burocracia, com controle financeiro e previsibilidade de custo. FRANQUIAS de diversos segmentos: mesma mecânica, com a vantagem de replicar a economia entre unidades. Em todos os casos, a energia continua chegando pela distribuidora local; a NewSun não é integradora de painéis nem vendedora de desconto — é geradora de energia limpa com tecnologia, transparência e suporte humano. A elegibilidade de cada unidade é confirmada na análise gratuita com um especialista.",
+      "approvedBy": "Luciano Querido (CMO) — transcrição do conteúdo público do site newsun.energy, aprovada em sessão de 17/09/2026",
+      "approvedAt": "2026-09-17T16:00:00-03:00",
+      "visibility": "public"
     }
   ]
 }

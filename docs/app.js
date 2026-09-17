@@ -103,6 +103,7 @@
     profile: null,
     flowData: {},
     flowAwaiting: null,
+    pendingFlowCapture: null,
     hotLeadPrompted: false,
     handoffDone: false,
     abandonSent: false,
@@ -114,6 +115,26 @@
 
   const HOT_LEAD_PATTERN = /(quanto vou economizar|qual (a |é a |seria a )?(minha )?economia|qual (o |é o )?desconto|percentual de desconto|prazo contratual|quero uma liga[çc][ãa]o|me liguem|enviar (a |minha )?conta|mandar (a |minha )?conta)/i;
 
+  // Texto digitado durante um passo de captura pode ser uma DÚVIDA, não a resposta do
+  // formulário (achado real de 17/09/2026: "Preciso instalar paineis solares?" virou o
+  // nome da empresa). Dúvida vai para a IA; a captura fica pendente e volta como convite.
+  const QUESTION_PATTERN = /^(?:o\s+que|oque|como|por\s*qu[eê]|porque|quando|onde|quanto|quais?|quem|preciso|posso|devo|d[áa]\s+para|tem\s|tenho\s|existe|funciona|vale\s+a\s+pena|é\s+verdade|voc[eê]s?\s|a\s+newsun|e\s+se\s|se\s+eu\s|instalar?\s|painel|paineis|painéis|placa)/i;
+
+  function looksLikeQuestion(text) {
+    const clean = String(text || "").trim();
+    if (!clean) return false;
+    if (clean.includes("?")) return true;
+    return clean.split(/\s+/).length >= 4 && QUESTION_PATTERN.test(clean);
+  }
+
+  // Reconvite curto para retomar a captura interrompida por uma dúvida.
+  const FLOW_REASK = Object.freeze({
+    empresa: "Voltando à sua análise gratuita: qual é o nome da sua empresa ou condomínio?",
+    cidade: "Voltando à análise: em qual cidade e estado fica a unidade?",
+    valorConta: "Voltando à simulação: qual é o valor médio mensal da conta? Pode escrever só o número, por exemplo: 4500.",
+    responsavel: "Voltando: quem costuma cuidar das decisões de energia aí? Se quiser, escreva o nome."
+  });
+
   // Fluxos guiados por departamento. Cada passo tem texto e botões; passos com
   // expectInput capturam a próxima mensagem digitada em vez de enviá-la à IA.
   const FLOWS = Object.freeze({
@@ -121,21 +142,16 @@
       start: "entrada",
       steps: {
         entrada: {
-          text: (d, p) => `Seja bem-vindo à NewSun Energy, ${firstName(p)}. Somos uma das empresas de energia limpa que mais crescem no Brasil. Quer fazer uma análise gratuita da sua conta de energia?`,
+          text: (d, p) => `Seja bem-vindo à NewSun Energy, ${firstName(p)}. Sou especialista em energia limpa por assinatura para condomínios, PMEs e franquias. Pode escrever qualquer dúvida que eu respondo na hora — e, quando quiser, faço uma análise gratuita da sua conta de energia.`,
           options: [
-            { label: "Sim, vamos lá", next: "empresa" },
-            { label: "Quero entender primeiro", next: "entender" }
-          ]
-        },
-        entender: {
-          text: () => "Claro. Como referência nacional no fornecimento de energia limpa para condomínios e PMEs, a NewSun acredita que, além da sustentabilidade, você pode economizar até 30% ao ano. Para isso temos o programa de Energia Limpa por Assinatura: sem obras, sem manutenção, sem investimento — é tudo por nossa conta. A elegibilidade depende do perfil da unidade consumidora. Quer verificar se sua conta está apta?",
-          options: [
-            { label: "Sim, verificar", next: "empresa" },
-            { label: "Falar com alguém", action: "handoff", reason: "Visitante pediu contato humano logo no início do fluxo comercial" }
+            { label: "Tirar uma dúvida", action: "free" },
+            { label: "Como funciona?", action: "ask", question: "Como funciona a energia por assinatura da NewSun?" },
+            { label: "Fazer minha análise gratuita", next: "empresa" },
+            { label: "Falar com um especialista", action: "handoff", reason: "Visitante pediu contato humano na entrada do fluxo comercial" }
           ]
         },
         empresa: {
-          text: () => "Perfeito. Qual é o nome da sua empresa?",
+          text: () => "Perfeito. Qual é o nome da sua empresa ou condomínio? Se surgir qualquer dúvida no caminho, pode perguntar — eu respondo e a análise continua depois.",
           expectInput: "empresa",
           next: "cidade"
         },
@@ -578,6 +594,7 @@
     state.handoffReason = "Solicitação do visitante";
     state.flowData = {};
     state.flowAwaiting = null;
+    state.pendingFlowCapture = null;
     state.hotLeadPrompted = false;
 
     els.chatTitle.textContent = department.label;
@@ -677,6 +694,52 @@
     addMessage("assistant", prompt);
     state.history.push({ role: "assistant", content: prompt });
     requestAnimationFrame(() => els.input.focus());
+  }
+
+  // CTA progressivo pós-resposta (só no Comercial): convida — nunca trava — a coleta
+  // do próximo dado do lead, na ordem análise → simulação → conta → especialista.
+  // Se uma captura ficou pendente porque o visitante perguntou algo, o convite é retomá-la.
+  function renderLeadCta() {
+    if (state.department?.id !== "comercial" || state.handoffDone) return;
+    const d = state.flowData;
+    const cta = [];
+
+    if (state.pendingFlowCapture) {
+      const pending = state.pendingFlowCapture;
+      cta.push({
+        label: "▶ Continuar minha análise gratuita",
+        run: () => {
+          state.pendingFlowCapture = null;
+          const reask = FLOW_REASK[pending.key] || "Voltando à sua análise: pode me enviar a informação de antes?";
+          addMessage("assistant", reask);
+          state.history.push({ role: "assistant", content: reask });
+          trimHistory();
+          els.suggestions.replaceChildren();
+          state.flowAwaiting = pending;
+          requestAnimationFrame(() => els.input.focus());
+        }
+      });
+    } else if (!d.empresa) {
+      cta.push({ label: "✅ Fazer minha análise gratuita", run: () => runFlowStep(FLOWS.comercial.steps.empresa) });
+    } else if (!d.valorConta && !d.faixaConta) {
+      cta.push({ label: "📊 Simular minha economia", run: () => runFlowStep(FLOWS.comercial.steps.valor_conta) });
+    } else {
+      cta.push({ label: "📎 Enviar minha conta para o cálculo exato", run: () => els.fileInput.click() });
+    }
+
+    cta.push({
+      label: "Falar com um especialista",
+      run: () => openHandoff(buildFlowReason("Visitante pediu especialista após respostas da IA"))
+    });
+
+    for (const item of cta) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "flow-option-button";
+      button.textContent = item.label;
+      button.addEventListener("click", item.run);
+      els.suggestions.append(button);
+    }
   }
 
   function buildFlowReason(base) {
@@ -944,19 +1007,26 @@
     const message = els.input.value.trim();
     if (!message) return;
 
-    // Passo de campo livre do fluxo guiado: captura a resposta sem chamar a IA.
+    // Passo de campo livre do fluxo guiado: captura a resposta sem chamar a IA —
+    // mas NUNCA engole uma pergunta como se fosse resposta do formulário. Pergunta
+    // vai para a IA e a captura fica pendente, retomável pelo convite.
     if (state.flowAwaiting) {
       const awaiting = state.flowAwaiting;
-      state.flowAwaiting = null;
-      addMessage("user", message);
-      state.history.push({ role: "user", content: message });
-      trimHistory();
-      state.flowData[awaiting.key] = message.slice(0, 140);
-      els.input.value = "";
-      autoResizeInput();
-      const flow = FLOWS[state.department.id];
-      if (awaiting.next && flow?.steps[awaiting.next]) runFlowStep(flow.steps[awaiting.next]);
-      return;
+      if (looksLikeQuestion(message)) {
+        state.flowAwaiting = null;
+        state.pendingFlowCapture = awaiting;
+      } else {
+        state.flowAwaiting = null;
+        addMessage("user", message);
+        state.history.push({ role: "user", content: message });
+        trimHistory();
+        state.flowData[awaiting.key] = message.slice(0, 140);
+        els.input.value = "";
+        autoResizeInput();
+        const flow = FLOWS[state.department.id];
+        if (awaiting.next && flow?.steps[awaiting.next]) runFlowStep(flow.steps[awaiting.next]);
+        return;
+      }
     }
 
     setBusy(true);
@@ -1008,7 +1078,10 @@
       if (response.needsHuman) {
         state.handoffReason = response.humanReason || "A dúvida requer validação humana";
         addHandoffPrompt(state.handoffReason);
-      } else if (!state.hotLeadPrompted && HOT_LEAD_PATTERN.test(message)) {
+      } else if (state.department?.id === "comercial") {
+        renderLeadCta();
+      }
+      if (!response.needsHuman && !state.hotLeadPrompted && HOT_LEAD_PATTERN.test(message)) {
         // Gatilho de lead quente: interrompe a cadência automática (seção 14 do fluxo).
         state.hotLeadPrompted = true;
         state.flowData.leadQuente = true;
@@ -1392,6 +1465,7 @@
     state.profile = null;
     state.flowData = {};
     state.flowAwaiting = null;
+    state.pendingFlowCapture = null;
     state.hotLeadPrompted = false;
     state.handoffDone = false;
     state.abandonSent = false;

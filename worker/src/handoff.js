@@ -227,7 +227,9 @@ export async function getHandoffStatus(env, { protocol, statusToken }) {
   }
 
   const state = cleanText(row.notification_state, 40);
-  const employeeNotified = ["delivered", "read", "confirmed_by_n8n", "confirmed_by_bitrix", "accepted_by_whatsapp"].includes(state);
+  // "accepted_by_whatsapp" fica de fora de propósito: a Meta aceitou o ENVIO, mas a
+  // entrega ao funcionário ainda não foi confirmada — não libera fechar a página.
+  const employeeNotified = ["delivered", "read", "confirmed_by_n8n", "confirmed_by_bitrix"].includes(state);
   const failed = row.status === "notification_failed" || state === "failed";
   const departmentLabel = DEPARTMENTS[row.department]?.label || "responsável";
   const message = employeeNotified

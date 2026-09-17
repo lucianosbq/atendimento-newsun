@@ -28,7 +28,7 @@ export async function answerPublicChat(env, input) {
   const rag = await retrievePublicContext(env, query, department);
   if (!rag.chunks.length) {
     return applyQuestionLimit({
-      answer: "Não encontrei conteúdo público aprovado suficiente para responder isso com segurança. Não vou preencher a lacuna com uma suposição. Posso encaminhar sua dúvida ao departamento responsável com protocolo.",
+      answer: "Boa pergunta — mas ela vai além do que posso confirmar por aqui com segurança, e prefiro não te dar uma resposta imprecisa. O melhor caminho é um especialista da NewSun, que olha o seu caso de verdade. Quer que eu te conecte agora?",
       confidence: "low",
       needsHuman: true,
       humanReason: "A base pública aprovada não contém evidência suficiente",
