@@ -139,7 +139,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 
 .app-shell { min-height: calc(100vh - 160px); padding: 62px 0 42px; }
 
-.welcome-view { animation: rise 0.45s ease; }
+.welcome-view { }
 .hero-copy { max-width: 770px; }
 .eyebrow {
   margin: 0 0 10px;
@@ -256,7 +256,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .privacy-note strong { color: #dcecff; font-size: 0.87rem; }
 .privacy-note p { margin: 4px 0 0; color: var(--muted); font-size: 0.78rem; }
 
-.chat-view { min-height: 720px; animation: rise 0.4s ease; }
+.chat-view { min-height: 720px; }
 .chat-topbar {
   display: grid;
   grid-template-columns: auto 1fr auto;
