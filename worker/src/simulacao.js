@@ -128,14 +128,22 @@ export async function analisarConta(env, file) {
     return porTexto?.consumoKwh ? porTexto : porVisao || porTexto;
   }
   if (file.type === "application/pdf") {
-    return analisarPorTextoExtraido(env, file);
+    // PDF digital: o texto extraído resolve. PDF escaneado (foto por dentro):
+    // extrai as imagens embutidas e o modelo de visão lê a página como imagem.
+    const porTexto = await analisarPorTextoExtraido(env, file);
+    if (porTexto?.consumoKwh) return porTexto;
+    const porImagemDoPdf = await analisarImagensDoPdf(env, file);
+    return porImagemDoPdf?.consumoKwh ? porImagemDoPdf : porTexto || porImagemDoPdf;
   }
   return null;
 }
 
 async function analisarContaImagem(env, file) {
+  return visaoSobreBytes(env, new Uint8Array(await file.arrayBuffer()));
+}
+
+async function visaoSobreBytes(env, bytes) {
   try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
     const result = await env.AI.run(env.MODEL_VISION || "@cf/meta/llama-3.2-11b-vision-instruct", {
       prompt: EXTRACAO_PROMPT,
       image: Array.from(bytes),
@@ -145,9 +153,48 @@ async function analisarContaImagem(env, file) {
     const texto = typeof result === "string" ? result : result?.response || result?.description || "";
     return normalizarExtracao(extrairJson(texto));
   } catch (error) {
-    console.error("analisarContaImagem falhou", error);
+    console.error("visaoSobreBytes falhou", error);
     return null;
   }
+}
+
+// Conta escaneada vira PDF com um JPEG por página embutido (stream DCTDecode).
+// Extrai os JPEGs e passa os maiores no modelo de visão, que lê o texto da imagem.
+async function analisarImagensDoPdf(env, file) {
+  try {
+    const jpegs = extrairJpegsDoPdf(new Uint8Array(await file.arrayBuffer()));
+    for (const jpeg of jpegs) {
+      const extracao = await visaoSobreBytes(env, jpeg);
+      if (extracao?.consumoKwh) return extracao;
+    }
+    return null;
+  } catch (error) {
+    console.error("analisarImagensDoPdf falhou", error);
+    return null;
+  }
+}
+
+// Varredura de passada única por marcadores JPEG (SOI FFD8FF … EOI FFD9).
+// Heurística: FFD9 pode ocorrer dentro dos dados e cortar a imagem — por isso
+// devolve até 2 candidatos (maiores primeiro) e a visão descarta o que não abrir.
+export function extrairJpegsDoPdf(bytes) {
+  const jpegs = [];
+  let inicio = -1;
+  for (let i = 0; i + 2 < bytes.length; i++) {
+    if (bytes[i] !== 0xff) continue;
+    if (inicio < 0 && bytes[i + 1] === 0xd8 && bytes[i + 2] === 0xff) {
+      inicio = i;
+      i += 2;
+      continue;
+    }
+    if (inicio >= 0 && bytes[i + 1] === 0xd9) {
+      const segmento = bytes.subarray(inicio, i + 2);
+      if (segmento.length > 20_000) jpegs.push(segmento);
+      inicio = -1;
+      i += 1;
+    }
+  }
+  return jpegs.sort((a, b) => b.length - a.length).slice(0, 2);
 }
 
 // PDF (e imagem que a visão não leu): AI.toMarkdown converte o documento em

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calcularSimulacao, normalizarExtracao, resolverTarifa } from "../src/simulacao.js";
+import { calcularSimulacao, extrairJpegsDoPdf, normalizarExtracao, resolverTarifa } from "../src/simulacao.js";
 
 // Valores do material oficial "A economia em reais" (Enel SP, B3 convencional,
 // 5.000 kWh/mês, CIP R$ 343,41): a simulação tem de reproduzi-los ao centavo.
@@ -43,6 +43,25 @@ test("normalizarExtracao valida faixas e descarta lixo", () => {
   assert.equal(foraDaFaixa.consumoKwh, null);
   assert.equal(normalizarExtracao(null), null);
   assert.equal(normalizarExtracao("texto"), null);
+});
+
+test("extrairJpegsDoPdf acha o JPEG embutido num PDF escaneado", () => {
+  // PDF sintético: lixo + um "JPEG" de 30 KB entre SOI (FFD8FF) e EOI (FFD9).
+  const tamanho = 30_000;
+  const pdf = new Uint8Array(tamanho + 200);
+  pdf.fill(0x20);
+  const inicio = 100;
+  pdf[inicio] = 0xff; pdf[inicio + 1] = 0xd8; pdf[inicio + 2] = 0xff;
+  pdf.fill(0x41, inicio + 3, inicio + tamanho);
+  pdf[inicio + tamanho] = 0xff; pdf[inicio + tamanho + 1] = 0xd9;
+  const jpegs = extrairJpegsDoPdf(pdf);
+  assert.equal(jpegs.length, 1);
+  assert.equal(jpegs[0][0], 0xff);
+  assert.equal(jpegs[0][jpegs[0].length - 1], 0xd9);
+  // imagem pequena demais (ícone/logo) é ignorada
+  const pequeno = new Uint8Array(500);
+  pequeno[0] = 0xff; pequeno[1] = 0xd8; pequeno[2] = 0xff; pequeno[498] = 0xff; pequeno[499] = 0xd9;
+  assert.equal(extrairJpegsDoPdf(pequeno).length, 0);
 });
 
 test("resolverTarifa casa apelidos da Enel", () => {
