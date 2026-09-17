@@ -5,6 +5,7 @@ import {
   notifyBitrixMessenger,
 } from "./integrations.js";
 import { findSessionByToken } from "./session.js";
+import { analisarContaImagem, calcularSimulacao } from "./simulacao.js";
 import {
   HttpError,
   addDaysIso,
@@ -23,11 +24,14 @@ const ALLOWED_TYPES = Object.freeze({
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_FILES_PER_SESSION = 5;
 
-// Recebe a conta de energia (PDF, JPG ou PNG) enviada pelo clipe do chat,
-// guarda no R2, registra no D1 e anexa o link seguro no card do Bitrix.
+// Recebe a conta de energia (PDF, JPG ou PNG) enviada pelo clipe do chat.
+// Sempre: analisa a conta na hora (modelo de visão) e devolve a simulação de
+// economia (pedido do CEO, 17/09/2026). Se o R2 estiver ligado, também guarda o
+// arquivo, registra no D1 e anexa o link seguro no card do Bitrix; sem R2, o
+// arquivo é processado só em memória e descartado.
 export async function handleAccountUpload({ request, env }) {
   if (!env.DB) throw new HttpError(503, "Banco de dados não configurado.", "database_not_configured");
-  if (!env.UPLOADS) throw new HttpError(503, "Armazenamento de arquivos não configurado.", "storage_not_configured");
+  const armazenar = Boolean(env.UPLOADS);
 
   let form;
   try {
@@ -52,61 +56,87 @@ export async function handleAccountUpload({ request, env }) {
     throw new HttpError(413, "O arquivo excede o limite de 8 MB. Envie uma foto menor ou o PDF da conta.", "file_too_large");
   }
 
-  const countRow = await env.DB.prepare(
-    "SELECT COUNT(*) AS total FROM session_uploads WHERE session_id = ?"
-  ).bind(session.id).first();
-  if (Number(countRow?.total || 0) >= MAX_FILES_PER_SESSION) {
-    throw new HttpError(429, "Limite de arquivos desta conversa atingido. O time já tem o que precisa.", "upload_limit");
-  }
-
   const uploadId = randomId("up_").replaceAll("-", "");
   const filename = sanitizeFilename(file.name, extension);
-  const r2Key = `contas/${session.protocol}/${uploadId}.${extension}`;
-  await env.UPLOADS.put(r2Key, file.stream(), {
-    httpMetadata: { contentType: file.type },
-  });
-
-  const now = nowIso();
+  let secureLink = "";
   const retentionDays = Math.max(1, Math.min(365, Number(env.HANDOFF_RETENTION_DAYS) || 90));
-  await env.DB.prepare(
-    `INSERT INTO session_uploads (id, session_id, protocol, filename, content_type, size_bytes, r2_key, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).bind(uploadId, session.id, session.protocol, filename, file.type, file.size, r2Key, now, addDaysIso(retentionDays)).run();
 
-  const token = await hmacHex(env.RATE_LIMIT_SALT || "development-only-salt", `file:${uploadId}`);
-  const origin = new URL(request.url).origin;
-  const secureLink = `${origin}/v1/file/${uploadId}?t=${token}`;
+  if (armazenar) {
+    const countRow = await env.DB.prepare(
+      "SELECT COUNT(*) AS total FROM session_uploads WHERE session_id = ?"
+    ).bind(session.id).first();
+    if (Number(countRow?.total || 0) >= MAX_FILES_PER_SESSION) {
+      throw new HttpError(429, "Limite de arquivos desta conversa atingido. O time já tem o que precisa.", "upload_limit");
+    }
+
+    const r2Key = `contas/${session.protocol}/${uploadId}.${extension}`;
+    await env.UPLOADS.put(r2Key, file.stream(), {
+      httpMetadata: { contentType: file.type },
+    });
+    await env.DB.prepare(
+      `INSERT INTO session_uploads (id, session_id, protocol, filename, content_type, size_bytes, r2_key, created_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(uploadId, session.id, session.protocol, filename, file.type, file.size, r2Key, nowIso(), addDaysIso(retentionDays)).run();
+
+    const token = await hmacHex(env.RATE_LIMIT_SALT || "development-only-salt", `file:${uploadId}`);
+    secureLink = `${new URL(request.url).origin}/v1/file/${uploadId}?t=${token}`;
+  }
+
+  // Leitura da conta + simulação de economia (só imagens; PDF cai no caminho manual).
+  const extracao = await analisarContaImagem(env, file);
+  const simulacao = extracao?.consumoKwh
+    ? calcularSimulacao(env, {
+        consumoKwh: extracao.consumoKwh,
+        distribuidora: extracao.distribuidora,
+        uf: extracao.uf,
+        cip: extracao.cip,
+      })
+    : null;
+
   const departmentLabel = DEPARTMENTS[session.department]?.label || session.department;
   const sizeKb = Math.max(1, Math.round(file.size / 1024));
+  const linhasResumo = [
+    `📎 Conta de energia recebida pelo atendimento IA — protocolo ${session.protocol}`,
+    `Arquivo: ${filename} (${sizeKb} KB, ${file.type})`,
+    secureLink
+      ? `Download seguro: ${secureLink} (expira com a retenção de ${retentionDays} dias)`
+      : "Arquivo analisado na hora, sem armazenamento (R2 desativado) — peça a conta ao cliente pelo WhatsApp.",
+  ];
+  if (extracao?.consumoKwh) {
+    linhasResumo.push(
+      `Leitura automática: ${extracao.distribuidora || "distribuidora não identificada"}${extracao.uf ? ` (${extracao.uf})` : ""} · ${extracao.consumoKwh} kWh${extracao.mesReferencia ? ` · ref. ${extracao.mesReferencia}` : ""}${extracao.cip ? ` · CIP R$ ${extracao.cip}` : ""}`
+    );
+  }
+  if (simulacao) {
+    linhasResumo.push(
+      `Simulação mostrada ao cliente: economia de R$ ${simulacao.resultado.economiaMensal.toFixed(2)}/mês (${simulacao.resultado.pctSobreElegivel}% da parcela elegível · tarifa ${simulacao.tarifa.referencia}).`
+    );
+  }
 
   if (session.bitrix_entity_id) {
     await addBitrixTimelineComment(env, {
       entityId: session.bitrix_entity_id,
-      text: [
-        `📎 Conta de energia recebida pelo atendimento IA — protocolo ${session.protocol}`,
-        `Arquivo: ${filename} (${sizeKb} KB, ${file.type})`,
-        `Download seguro: ${secureLink}`,
-        `O link expira junto com a retenção do atendimento (${retentionDays} dias).`,
-      ].join("\n"),
+      text: linhasResumo.join("\n"),
     }).catch(() => null);
   }
   const route = getDepartmentRoute(env, session.department);
   await notifyBitrixMessenger(
     env,
     route,
-    [
-      `Conta de energia recebida — ${departmentLabel}`,
-      `Protocolo: ${session.protocol}`,
-      `Arquivo: ${filename} (${sizeKb} KB)`,
-      `Download: ${secureLink}`,
-    ].join("\n")
+    [`Conta de energia recebida — ${departmentLabel}`, `Protocolo: ${session.protocol}`, ...linhasResumo.slice(1)].join("\n")
   ).catch(() => null);
 
   return {
     ok: true,
-    fileId: uploadId,
+    fileId: armazenar ? uploadId : "",
     filename,
-    message: "Conta recebida com sucesso. Ela já está anexada ao seu protocolo e o time usará exclusivamente para a análise de consumo, distribuidora e tarifa.",
+    armazenado: armazenar,
+    message: armazenar
+      ? "Conta recebida com sucesso. Ela já está anexada ao seu protocolo e o time usará exclusivamente para a análise de consumo, distribuidora e tarifa."
+      : "Conta recebida e analisada na hora. O time usará os dados exclusivamente para a análise de consumo, distribuidora e tarifa.",
+    extracao,
+    simulacao,
+    precisaDados: !simulacao,
   };
 }
 

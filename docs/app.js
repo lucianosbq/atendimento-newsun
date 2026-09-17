@@ -104,6 +104,7 @@
     flowData: {},
     flowAwaiting: null,
     pendingFlowCapture: null,
+    simAwaiting: false,
     hotLeadPrompted: false,
     handoffDone: false,
     abandonSent: false,
@@ -595,6 +596,7 @@
     state.flowData = {};
     state.flowAwaiting = null;
     state.pendingFlowCapture = null;
+    state.simAwaiting = false;
     state.hotLeadPrompted = false;
 
     els.chatTitle.textContent = department.label;
@@ -753,6 +755,7 @@
     if (d.responsavel) parts.push(`Responsável indicado: ${d.responsavel}`);
     if (d.perfil) parts.push(`Perfil: ${d.perfil}`);
     if (d.assunto) parts.push(`Assunto: ${d.assunto}`);
+    if (d.simulado) parts.push("Simulação de economia apresentada no chat");
     const suffix = parts.length ? ` | ${parts.join(" · ")}` : "";
     return `${base || "Solicitação do visitante"}${suffix}`.slice(0, 380);
   }
@@ -864,6 +867,131 @@
     return `${firstName(profile)}, com uma conta média de ${brl(valor)} por mês, sua economia pode chegar a ${brl(mensal)} por mês — até ${brl(anual)} por ano, considerando o teto de 30% do programa. É uma estimativa inicial: o número exato depende da análise da conta, da distribuidora e da elegibilidade da unidade. Chega de deixar dinheiro na mesa todos os meses — quer avançar?`;
   }
 
+  // ---- Cartão de simulação de economia (pedido do CEO Fernando, 17/09/2026) ----
+  // Reproduz o material oficial "A economia em reais": desembolso sem/com a
+  // solução, economia mensal em destaque e acumulado de 5 anos. Os números vêm
+  // prontos do Worker; aqui é só apresentação.
+
+  const brl2 = (n) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  function renderSimulationCard(sim) {
+    const el = (tag, cls, text) => {
+      const node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (text != null) node.textContent = text;
+      return node;
+    };
+
+    const wrapper = el("article", "message assistant");
+    wrapper.append(makeAvatar());
+    const bubble = el("div", "bubble sim-card");
+
+    bubble.append(el("div", "sim-title", "A economia em reais"));
+    bubble.append(el("div", "sim-subtitle",
+      `Simulação ilustrativa · ${sim.tarifa.nome} (${sim.tarifa.uf}) · ${sim.tarifa.subgrupo} · ${Number(sim.entrada.consumoKwh).toLocaleString("pt-BR")} kWh/mês`));
+
+    const comp = el("div", "sim-compare");
+    const maior = sim.resultado.semSolucao || 1;
+    const coluna = (rotulo, total, comSolucao) => {
+      const col = el("div", "sim-col");
+      col.append(el("div", "sim-col-total", brl2(total)));
+      const bar = el("div", comSolucao ? "sim-bar sim-bar-laranja" : "sim-bar");
+      bar.style.height = `${Math.max(24, Math.round((total / maior) * 110))}px`;
+      col.append(bar);
+      col.append(el("div", "sim-col-label", rotulo));
+      return col;
+    };
+    comp.append(coluna("Sem a solução", sim.resultado.semSolucao, false));
+    comp.append(coluna("Com a solução", sim.resultado.comSolucao, true));
+    bubble.append(comp);
+
+    const destaque = el("div", "sim-destaque");
+    destaque.append(el("div", "sim-destaque-valor", brl2(sim.resultado.economiaMensal)));
+    destaque.append(el("div", "sim-destaque-texto", "de economia mensal nesta simulação"));
+    destaque.append(el("div", "sim-destaque-pct",
+      `${sim.resultado.pctSobreElegivel}% sobre a parcela elegível · ${sim.resultado.pctSobreSubtotal}% sobre o subtotal considerado`));
+    bubble.append(destaque);
+
+    bubble.append(el("div", "sim-proj-title", "Como essa economia pode se acumular"));
+    const proj = el("div", "sim-proj");
+    const teto = sim.projecaoAnual[sim.projecaoAnual.length - 1]?.acumulado || 1;
+    for (const p of sim.projecaoAnual) {
+      const col = el("div", "sim-col");
+      col.append(el("div", "sim-proj-valor", brl2(p.acumulado)));
+      const bar = el("div", "sim-bar sim-bar-laranja");
+      bar.style.height = `${Math.max(10, Math.round((p.acumulado / teto) * 64))}px`;
+      col.append(bar);
+      col.append(el("div", "sim-col-label", `${p.ano}º ano`));
+      proj.append(col);
+    }
+    bubble.append(proj);
+
+    const avisos = el("div", "sim-avisos");
+    for (const aviso of sim.avisos || []) avisos.append(el("div", null, `* ${aviso}`));
+    avisos.append(el("div", null, `* Referências da simulação: ${sim.tarifa.referencia}.`));
+    bubble.append(avisos);
+
+    wrapper.append(bubble);
+    els.messages.append(wrapper);
+    scrollMessages();
+
+    state.flowData.simulado = true;
+    state.history.push({
+      role: "assistant",
+      content: `Simulação apresentada: economia de ${brl2(sim.resultado.economiaMensal)} por mês (${sim.resultado.pctSobreElegivel}% sobre a parcela elegível), acumulando ${brl2(sim.projecaoAnual[sim.projecaoAnual.length - 1]?.acumulado || 0)} em 5 anos. Valores ilustrativos: TUSD e TE dependem da concessionária e do estado.`,
+    });
+    trimHistory();
+  }
+
+  // Quando a leitura automática da conta falha (PDF ou foto ilegível), pede o
+  // mínimo para simular mesmo assim: consumo em kWh + distribuidora.
+  function pedirDadosSimulacao() {
+    const pergunta = "Recebi o arquivo, mas não consegui ler todos os dados dele. Me diga o consumo do mês em kWh e a sua distribuidora — por exemplo: 5000 kWh, Enel SP. O consumo aparece na sua conta, na parte de leitura.";
+    addMessage("assistant", pergunta);
+    state.history.push({ role: "assistant", content: pergunta });
+    trimHistory();
+    state.simAwaiting = true;
+    requestAnimationFrame(() => els.input.focus());
+  }
+
+  async function solicitarSimulacaoManual(texto) {
+    const m = texto.replace(/\./g, "").match(/(\d{3,7})\s*(?:kwh)?/i);
+    const consumo = m ? Number(m[1]) : NaN;
+    const distribuidora = texto
+      .replace(/\d[\d.,]*\s*(kwh)?/gi, " ")
+      .replace(/[,;]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!Number.isFinite(consumo) || consumo < 100) {
+      addMessage("assistant", "Preciso do consumo em kWh — é um número que aparece na sua conta, na parte de leitura/consumo. Pode escrever, por exemplo: 5000 kWh, Enel SP.");
+      state.simAwaiting = true;
+      return;
+    }
+    const typing = addTypingMessage();
+    try {
+      const base = String(config.apiBaseUrl || "").replace(/\/$/, "");
+      const res = await fetch(`${base}/v1/simulate`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "omit",
+        body: JSON.stringify({ sessionToken: state.session?.token || "", consumoKwh: consumo, distribuidora }),
+      });
+      const data = await res.json().catch(() => ({}));
+      typing.remove();
+      if (!res.ok || !data.simulacao) throw new Error(data.error || "Não consegui simular agora.");
+      renderSimulationCard(data.simulacao);
+      renderFlowOptions([
+        { label: "Quero essa economia — falar com o especialista", action: "handoff", reason: "Simulação de economia apresentada sobre a conta enviada — visitante quer avançar" },
+        { label: "Tenho outra dúvida", action: "free" }
+      ]);
+    } catch (error) {
+      typing.remove();
+      console.error(error);
+      addMessage("assistant", "Não consegui montar a simulação agora, mas o especialista faz esse cálculo com a sua conta em mãos. Quer que eu te conecte?");
+      addHandoffPrompt("Simulação automática indisponível — visitante com conta enviada aguarda cálculo humano");
+    }
+  }
+
   async function uploadAccountFile(file) {
     if (!state.department || state.busy) return;
     const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
@@ -905,6 +1033,25 @@
 
       typing.remove();
       state.flowData.contaEnviada = true;
+
+      // Pedido do CEO (17/09/2026): conta enviada → simulação de economia na hora.
+      if (response.simulacao) {
+        const intro = response.message || "Conta recebida com sucesso.";
+        addMessage("assistant", intro);
+        state.history.push({ role: "assistant", content: intro });
+        trimHistory();
+        renderSimulationCard(response.simulacao);
+        renderFlowOptions([
+          { label: "Quero essa economia — falar com o especialista", action: "handoff", reason: "Simulação sobre a conta enviada apresentada — visitante quer avançar" },
+          { label: "Tenho outra dúvida", action: "free" }
+        ]);
+        return;
+      }
+      if (response.precisaDados) {
+        pedirDadosSimulacao();
+        return;
+      }
+
       const confirmation = `${response.message || "Conta recebida com sucesso."} Posso acionar o especialista agora para concluir a análise?`;
       addMessage("assistant", confirmation);
       state.history.push({ role: "assistant", content: confirmation });
@@ -1006,6 +1153,21 @@
 
     const message = els.input.value.trim();
     if (!message) return;
+
+    // Resposta ao pedido de dados da simulação manual (consumo em kWh + distribuidora).
+    // Pergunta digitada aqui segue para a IA, como em qualquer captura.
+    if (state.simAwaiting) {
+      state.simAwaiting = false;
+      if (!looksLikeQuestion(message)) {
+        addMessage("user", message);
+        state.history.push({ role: "user", content: message });
+        trimHistory();
+        els.input.value = "";
+        autoResizeInput();
+        void solicitarSimulacaoManual(message);
+        return;
+      }
+    }
 
     // Passo de campo livre do fluxo guiado: captura a resposta sem chamar a IA —
     // mas NUNCA engole uma pergunta como se fosse resposta do formulário. Pergunta
@@ -1466,6 +1628,7 @@
     state.flowData = {};
     state.flowAwaiting = null;
     state.pendingFlowCapture = null;
+    state.simAwaiting = false;
     state.hotLeadPrompted = false;
     state.handoffDone = false;
     state.abandonSent = false;

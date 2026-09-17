@@ -4,6 +4,7 @@ import { appendSessionTimeline, createChatSession, findSessionByToken, markSessi
 import { handleAccountUpload, handleFileDownload } from "./upload.js";
 import { answerPublicChat } from "./llm.js";
 import { ingestPublicDocument } from "./rag.js";
+import { calcularSimulacao } from "./simulacao.js";
 import {
   applySecurityHeaders,
   assertOriginAllowed,
@@ -139,6 +140,37 @@ async function route(request, env, ctx) {
     ctx.waitUntil(recordChatTurnBestEffort(env, input, result));
     ctx.waitUntil(cleanupOldRateLimitsBestEffort(env));
     return json(result);
+  }
+
+  // Simulação manual: usada quando a leitura automática da conta não foi possível
+  // (PDF ou foto ilegível) e o visitante informa consumo/distribuidora no chat.
+  if (method === "POST" && url.pathname === "/v1/simulate") {
+    assertOriginAllowed(request, env);
+    const rate = await enforceRateLimit({
+      request,
+      env,
+      scope: "simulate",
+      limit: clampInt(env.CHAT_RATE_LIMIT, 30, 1, 300),
+      windowSeconds: clampInt(env.CHAT_RATE_WINDOW_SECONDS, 600, 60, 86_400),
+    });
+    if (!rate.allowed) {
+      throw new HttpError(429, "Muitas simulações seguidas. Aguarde alguns minutos.", "rate_limited", {
+        retryAfter: rate.retryAfter,
+      });
+    }
+    const input = await readJson(request, 4_000);
+    const session = await findSessionByToken(env, String(input.sessionToken || ""));
+    if (!session) throw new HttpError(403, "Sessão inválida ou expirada. Recarregue a página e refaça o cadastro.", "invalid_session");
+    const simulacao = calcularSimulacao(env, {
+      consumoKwh: input.consumoKwh,
+      distribuidora: input.distribuidora,
+      uf: input.uf,
+      cip: input.cip,
+    });
+    if (!simulacao) {
+      throw new HttpError(400, "Não consegui simular com esses dados. Informe o consumo mensal em kWh (entre 100 e 1.000.000).", "invalid_simulation_input");
+    }
+    return json({ ok: true, simulacao });
   }
 
   if (method === "POST" && url.pathname === "/v1/handoff") {

@@ -755,3 +755,110 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 @media (max-width: 680px) {
   .start-form { padding: 16px; border-radius: 18px; }
 }
+
+
+/* ---- Cartão de simulação de economia (pedido do CEO, 17/09/2026) ----------
+   Reproduz o material oficial "A economia em reais": barras sem/com a solução,
+   economia mensal em destaque e acumulado de 5 anos. */
+.sim-card {
+  width: 100%;
+  max-width: 560px;
+  background: linear-gradient(160deg, var(--navy-950), var(--navy-900));
+  border: 1px solid var(--line);
+}
+.sim-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--white);
+}
+.sim-subtitle {
+  font-size: 0.78rem;
+  color: var(--orange-400);
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.sim-compare,
+.sim-proj {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  margin: 10px 0 4px;
+}
+.sim-proj { gap: 10px; }
+.sim-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+.sim-col-total {
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 0.92rem;
+  white-space: nowrap;
+}
+.sim-proj-valor {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.sim-bar {
+  width: 100%;
+  max-width: 110px;
+  border-radius: 8px 8px 3px 3px;
+  background: linear-gradient(180deg, var(--blue-500), var(--blue-600));
+  box-shadow: 0 6px 18px rgba(26, 116, 228, 0.35);
+}
+.sim-bar-laranja {
+  background: linear-gradient(180deg, var(--orange-400), var(--orange-500));
+  box-shadow: 0 6px 18px rgba(255, 138, 0, 0.3);
+}
+.sim-proj .sim-bar { max-width: 64px; }
+.sim-col-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+}
+.sim-destaque {
+  margin: 16px 0 6px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 138, 0, 0.1);
+  border: 1px solid rgba(255, 138, 0, 0.35);
+  text-align: center;
+}
+.sim-destaque-valor {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--orange-500);
+  line-height: 1.1;
+}
+.sim-destaque-texto {
+  color: var(--white);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.sim-destaque-pct {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.sim-proj-title {
+  margin-top: 14px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--white);
+}
+.sim-avisos {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 0.66rem;
+  line-height: 1.45;
+  color: var(--muted-2);
+}
