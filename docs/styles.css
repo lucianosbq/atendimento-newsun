@@ -369,6 +369,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   color: var(--white);
 }
 .message-meta { margin-top: 8px; color: var(--muted-2); font-size: 0.68rem; }
+.message-time { margin-bottom: 5px; color: var(--muted-2); font-size: 0.62rem; letter-spacing: 0.02em; }
+.message.user .message-time { text-align: right; }
 .source-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .source-chip {
   padding: 4px 7px;

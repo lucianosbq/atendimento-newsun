@@ -390,6 +390,16 @@
     }
   });
 
+  // Carimbo de data e hora no topo de cada mensagem (pedido do Luciano, 17/09/2026).
+  function makeTimestamp() {
+    const marca = document.createElement("div");
+    marca.className = "message-time";
+    marca.textContent = new Date().toLocaleString("pt-BR", {
+      day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+    });
+    return marca;
+  }
+
   function makeAvatar() {
     const avatar = document.createElement("span");
     avatar.className = "avatar";
@@ -615,18 +625,19 @@
       els.protocolChip.hidden = false;
     }
 
-    if (state.session && state.session.withinBusinessHours === false) {
-      const aviso = "Estamos fora do horário de atendimento humano (segunda a sexta, das 8h às 18h). Posso responder suas dúvidas agora mesmo; se precisar de uma pessoa, o setor recebe sua solicitação com protocolo e retorna no próximo expediente.";
-      addMessage("assistant", aviso);
-      state.history.push({ role: "assistant", content: aviso });
-    }
+    // Fora do expediente, o aviso entra JUNTO da primeira mensagem (uma bolha
+    // só) — duas mensagens simultâneas na abertura confundem (achado 17/09).
+    const avisoExpediente = state.session && state.session.withinBusinessHours === false
+      ? "⏰ Estamos fora do horário de atendimento humano (segunda a sexta, das 8h às 18h). Posso responder suas dúvidas agora mesmo; se precisar de uma pessoa, o setor recebe sua solicitação com protocolo e retorna no próximo expediente."
+      : "";
 
     const flow = FLOWS[department.id];
     if (flow) {
-      runFlowStep(flow.steps[flow.start]);
+      runFlowStep(flow.steps[flow.start], avisoExpediente);
     } else {
-      addMessage("assistant", department.greeting, { sources: ["Central de Ajuda NewSun"] });
-      state.history.push({ role: "assistant", content: department.greeting });
+      const saudacao = avisoExpediente ? `${avisoExpediente}\n\n${department.greeting}` : department.greeting;
+      addMessage("assistant", saudacao, { sources: ["Central de Ajuda NewSun"] });
+      state.history.push({ role: "assistant", content: saudacao });
       renderSuggestions(department.suggestions);
     }
 
@@ -636,9 +647,10 @@
 
   // ---- Motor do fluxo guiado ----
 
-  function runFlowStep(step) {
+  function runFlowStep(step, prefixo = "") {
     if (!step) return;
-    const text = typeof step.text === "function" ? step.text(state.flowData, state.profile) : String(step.text || "");
+    let text = typeof step.text === "function" ? step.text(state.flowData, state.profile) : String(step.text || "");
+    if (prefixo && text) text = `${prefixo}\n\n${text}`;
     if (text) {
       addMessage("assistant", text);
       state.history.push({ role: "assistant", content: text });
@@ -891,6 +903,7 @@
     wrapper.append(makeAvatar());
     const bubble = el("div", "bubble sim-card");
 
+    bubble.append(makeTimestamp());
     bubble.append(el("div", "sim-title", "A economia em reais"));
     bubble.append(el("div", "sim-subtitle",
       `Simulação ilustrativa · ${sim.tarifa.nome} (${sim.tarifa.uf}) · ${sim.tarifa.subgrupo} · ${Number(sim.entrada.consumoKwh).toLocaleString("pt-BR")} kWh/mês`));
@@ -1331,6 +1344,7 @@
 
     const bubble = document.createElement("div");
     bubble.className = "bubble";
+    bubble.append(makeTimestamp());
 
     const content = document.createElement("div");
     if (role === "assistant" && options.typewriter !== false && text) {
