@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calcularSimulacao, resolverTarifa } from "../src/simulacao.js";
+import { calcularSimulacao, normalizarExtracao, resolverTarifa } from "../src/simulacao.js";
 
 // Valores do material oficial "A economia em reais" (Enel SP, B3 convencional,
 // 5.000 kWh/mês, CIP R$ 343,41): a simulação tem de reproduzi-los ao centavo.
@@ -32,6 +32,17 @@ test("todo resultado carrega os avisos de TUSD/TE e de reajuste", () => {
 test("consumo fora da faixa não simula", () => {
   assert.equal(calcularSimulacao({}, { consumoKwh: 50 }), null);
   assert.equal(calcularSimulacao({}, { consumoKwh: "abc" }), null);
+});
+
+test("normalizarExtracao valida faixas e descarta lixo", () => {
+  const ok = normalizarExtracao({ distribuidora: "Enel SP", uf: "sp", consumo_kwh: "5000", valor_total: 4290.31, cip: 343.41, mes_referencia: "07/2026" });
+  assert.equal(ok.consumoKwh, 5000);
+  assert.equal(ok.uf, "SP");
+  assert.equal(ok.cip, 343.41);
+  const foraDaFaixa = normalizarExtracao({ consumo_kwh: 12 });
+  assert.equal(foraDaFaixa.consumoKwh, null);
+  assert.equal(normalizarExtracao(null), null);
+  assert.equal(normalizarExtracao("texto"), null);
 });
 
 test("resolverTarifa casa apelidos da Enel", () => {

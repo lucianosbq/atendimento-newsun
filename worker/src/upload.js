@@ -5,7 +5,7 @@ import {
   notifyBitrixMessenger,
 } from "./integrations.js";
 import { findSessionByToken } from "./session.js";
-import { analisarContaImagem, calcularSimulacao } from "./simulacao.js";
+import { analisarConta, calcularSimulacao } from "./simulacao.js";
 import {
   HttpError,
   addDaysIso,
@@ -82,8 +82,9 @@ export async function handleAccountUpload({ request, env }) {
     secureLink = `${new URL(request.url).origin}/v1/file/${uploadId}?t=${token}`;
   }
 
-  // Leitura da conta + simulação de economia (só imagens; PDF cai no caminho manual).
-  const extracao = await analisarContaImagem(env, file);
+  // Leitura da conta + simulação de economia: imagem via visão, PDF via extração
+  // de texto (toMarkdown); se nada funcionar, o chat pede os dados mínimos.
+  const extracao = await analisarConta(env, file);
   const simulacao = extracao?.consumoKwh
     ? calcularSimulacao(env, {
         consumoKwh: extracao.consumoKwh,
