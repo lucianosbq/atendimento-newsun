@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calcularSimulacao, extrairJpegsDoPdf, normalizarExtracao, resolverTarifa } from "../src/simulacao.js";
+import zlib from "node:zlib";
+import { calcularSimulacao, extrairJpegsDoPdf, extrairTextoDoPdf, normalizarExtracao, resolverTarifa } from "../src/simulacao.js";
 
 // Valores do material oficial "A economia em reais" (Enel SP, B3 convencional,
 // 5.000 kWh/mês, CIP R$ 343,41): a simulação tem de reproduzi-los ao centavo.
@@ -62,6 +63,46 @@ test("extrairJpegsDoPdf acha o JPEG embutido num PDF escaneado", () => {
   const pequeno = new Uint8Array(500);
   pequeno[0] = 0xff; pequeno[1] = 0xd8; pequeno[2] = 0xff; pequeno[498] = 0xff; pequeno[499] = 0xd9;
   assert.equal(extrairJpegsDoPdf(pequeno).length, 0);
+});
+
+test("tarifas lidas da própria conta têm prioridade sobre a tabela", () => {
+  // Valores reais da fatura Enel SP inspecionada em 17/09/2026 (com tributos).
+  const sim = calcularSimulacao({}, {
+    consumoKwh: 7102.8, distribuidora: "Enel SP", uf: "SP", cip: 494.5,
+    tusdKwhConta: 0.56282, teKwhConta: 0.381,
+  });
+  assert.equal(sim.tarifa.daConta, true);
+  assert.equal(sim.tarifa.tusdKwh, 0.56282);
+  assert.match(sim.tarifa.referencia, /pr[óo]pria conta/);
+  assert.match(sim.avisos[0], /lidas da sua pr[óo]pria conta/);
+  assert.equal(sim.resultado.parcelaElegivel, Math.round(7102.8 * 0.94382 * 100) / 100);
+  assert.equal(sim.resultado.economiaMensal, Math.round(sim.resultado.parcelaElegivel * 0.2 * 100) / 100);
+});
+
+test("tarifa unitária fora da faixa é ignorada e cai na tabela", () => {
+  const sim = calcularSimulacao({}, { consumoKwh: 5000, distribuidora: "Enel SP", tusdKwhConta: 12, teKwhConta: 0.3 });
+  assert.equal(Boolean(sim.tarifa.daConta), false);
+  assert.equal(sim.resultado.parcelaElegivel, 3946.9);
+});
+
+test("extrairTextoDoPdf infla FlateDecode e junta os literais de texto", async () => {
+  const conteudo = "BT (CONSUMO ) Tj (7.102,800 kWh ) Tj (TUSD 0,56282) Tj ET";
+  const comprimido = zlib.deflateSync(Buffer.from(conteudo, "latin1"));
+  const pdf = Buffer.concat([
+    Buffer.from("%PDF-1.7\n1 0 obj\n<< /Filter /FlateDecode >>\nstream\n", "latin1"),
+    comprimido,
+    Buffer.from("\nendstream\nendobj\n%%EOF", "latin1"),
+  ]);
+  const texto = await extrairTextoDoPdf(new Uint8Array(pdf));
+  assert.match(texto, /7\.102,800 kWh/);
+  assert.match(texto, /TUSD 0,56282/);
+});
+
+test("normalizarExtracao aceita número em formato brasileiro", () => {
+  const r = normalizarExtracao({ consumo_kwh: "7.102,8", tusd_unit: "0,56282", te_unit: 0.381, cip: "494,50" });
+  assert.equal(r.consumoKwh, 7102.8);
+  assert.equal(r.tusdUnit, 0.56282);
+  assert.equal(r.cip, 494.5);
 });
 
 test("resolverTarifa casa apelidos da Enel", () => {
