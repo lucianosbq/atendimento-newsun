@@ -807,6 +807,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
   /* Sem o símbolo ao lado do balão no celular — o balão fala por si. */
   .message .avatar { display: none; }
   .message { gap: 0; }
+  .message .bubble { min-width: 0; }
+
+  /* Cartão da simulação preso à largura da tela; a projeção de 5 anos rola
+     de lado dentro dele (os valores em R$ não podem quebrar linha). */
+  .sim-card { max-width: 100%; }
+  .sim-proj { overflow-x: auto; justify-content: flex-start; scrollbar-width: none; }
+  .sim-proj::-webkit-scrollbar { display: none; }
+  .sim-proj .sim-col { flex: 0 0 auto; min-width: 58px; }
+  .sim-avisos { font-size: 0.58rem; }
 
   /* CTAs enxutos: chips de UMA linha, roláveis de lado. */
   .suggestions { padding: 0 12px 10px; }
@@ -820,6 +829,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .sim-card {
   width: 100%;
   max-width: 560px;
+  min-width: 0;
+  overflow: hidden;
   background: linear-gradient(160deg, var(--navy-950), var(--navy-900));
   border: 1px solid var(--line);
 }
