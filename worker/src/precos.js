@@ -53,11 +53,15 @@ function normalizar(texto) {
 // na tabela — SP tem seis, então UF sozinha não decide lá.
 export function resolverPolitica(distribuidora, uf) {
   const nome = normalizar(distribuidora);
+  const estadoInformado = normalizar(uf).toUpperCase();
   if (nome) {
     const candidatos = POLITICA
       .flatMap((linha) => linha.aliases.map((alias) => ({ linha, alias })))
       .filter(({ alias }) => nome.includes(alias) || alias.includes(nome))
-      .sort((a, b) => b.alias.length - a.alias.length);
+      // UF da conta desempata nomes de grupo ("Neoenergia" casa com várias linhas)
+      .sort((a, b) =>
+        Number(b.linha.uf === estadoInformado) - Number(a.linha.uf === estadoInformado) ||
+        b.alias.length - a.alias.length);
     if (candidatos.length) return candidatos[0].linha;
   }
   const estado = normalizar(uf).toUpperCase();

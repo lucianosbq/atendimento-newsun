@@ -163,6 +163,19 @@ test("extrairPorRegex lê as linhas de itens de fatura no padrão ANEEL", () => 
   assert.equal(extrairPorRegex("fatura qualquer sem itens"), null);
 });
 
+test("extrairPorRegex lê o layout Coelba/Neoenergia (Consumo - TUSD / Consumo - TE)", () => {
+  const texto = "COELBA - COMPANHIA DE ELETRICIDADE DO ESTADO DA BAHIA SALVADOR - BA " +
+    "Consumo - TUSD kWh 6.800 0,682025 4.637,77 " +
+    "Consumo - TE kWh 6.800 0,487341 3.311,92 " +
+    "Contrib. de Iluminação Pública kWh 182,91";
+  const r = extrairPorRegex(texto);
+  assert.equal(r.consumoKwh, 6800);
+  assert.equal(r.tusdUnit, 0.682025);
+  assert.equal(r.teUnit, 0.487341);
+  assert.equal(r.distribuidora, "Neoenergia");
+  assert.equal(r.uf, "BA");
+});
+
 test("normalizarExtracao aceita número em formato brasileiro", () => {
   const r = normalizarExtracao({ consumo_kwh: "7.102,8", tusd_unit: "0,56282", te_unit: 0.381, cip: "494,50" });
   assert.equal(r.consumoKwh, 7102.8);

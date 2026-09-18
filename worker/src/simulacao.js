@@ -401,7 +401,7 @@ export function normalizarExtracao(json) {
 export function extrairPorRegex(texto) {
   const t = String(texto || "");
   const tusdLinha = t.match(/(?:USO\s+(?:DO\s+)?SIST[^K]{0,40}|TUSD[^K]{0,20})KWH\s+([\d.,]+)\s+([\d.,]+)/i);
-  const teLinha = t.match(/ENERGIA(?:\s*\(?TE\)?)?[^K]{0,20}KWH\s+([\d.,]+)\s+([\d.,]+)/i);
+  const teLinha = t.match(/(?:ENERGIA(?:\s*\(?TE\)?)?|\bTE\b)[^K]{0,20}KWH\s+([\d.,]+)\s+([\d.,]+)/i);
   if (!tusdLinha) return null;
 
   const consumo = numeroBr(tusdLinha[1]);
@@ -411,8 +411,9 @@ export function extrairPorRegex(texto) {
   const ufLinha = t.match(/\/\s*([A-Z]{2})\b/);
 
   const distribuidoras = [
-    [/enel|eletropaulo/i, "Enel SP"], [/cemig/i, "Cemig"], [/cpfl/i, "CPFL"], [/\blight\b/i, "Light"],
-    [/neoenergia|coelba|celpe|cosern|elektro/i, "Neoenergia"], [/equatorial/i, "Equatorial"],
+    [/enel|eletropaulo/i, "Enel SP"], [/cemig/i, "Cemig"], [/coelba/i, "Coelba"], [/celpe/i, "Neoenergia PE"],
+    [/cosern/i, "Cosern"], [/elektro/i, "Elektro"], [/cpfl/i, "CPFL"], [/\blight\b/i, "Light"],
+    [/neoenergia/i, "Neoenergia"], [/equatorial/i, "Equatorial"],
     [/energisa/i, "Energisa"], [/celesc/i, "Celesc"], [/copel/i, "Copel"], [/edp/i, "EDP"],
   ];
   const dist = distribuidoras.find(([re]) => re.test(t));
