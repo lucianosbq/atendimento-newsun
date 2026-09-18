@@ -93,6 +93,7 @@ export async function handleAccountUpload({ request, env }) {
         cip: extracao.cip,
         tusdKwhConta: extracao.tusdUnit,
         teKwhConta: extracao.teUnit,
+        valorTotalConta: extracao.valorTotal,
       })
     : null;
 

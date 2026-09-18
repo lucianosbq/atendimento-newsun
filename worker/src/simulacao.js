@@ -49,17 +49,18 @@ export function resolverTarifa(distribuidora, uf) {
   return { ...REFERENCIA_PADRAO, generica: true };
 }
 
-export function calcularSimulacao(env, { consumoKwh, distribuidora = "", uf = "", cip = null, tusdKwhConta = null, teKwhConta = null }) {
+export function calcularSimulacao(env, { consumoKwh, distribuidora = "", uf = "", cip = null, tusdKwhConta = null, teKwhConta = null, valorTotalConta = null }) {
   const consumo = Number(consumoKwh);
   if (!Number.isFinite(consumo) || consumo < 100 || consumo > 1_000_000) return null;
 
-  // Desconto conforme a Política de Preços Mensal (por concessionária): o
-  // benefício líquido ao cliente é o desconto total sobre a tarifa MENOS o
-  // ICMS-TUSD do estado (fórmula oficial). Concessionária fora da política cai
-  // no desconto de referência do ambiente, com aviso.
+  // Desconto conforme a Política de Preços Mensal (por concessionária). Decisão
+  // do Luciano (18/09/2026): o cartão calcula e ESTAMPA o desconto TOTAL sobre a
+  // tarifa; o benefício líquido (total − ICMS-TUSD do estado, fórmula oficial)
+  // vai na letra miúda. Concessionária fora da política cai no desconto de
+  // referência do ambiente, com aviso.
   const politica = resolverPolitica(distribuidora, uf);
   const taxa = politica
-    ? politica.descLiquido / 100
+    ? politica.descTotal / 100
     : Math.min(0.5, Math.max(0.05, Number(env?.SIMULATION_DISCOUNT_RATE) || 0.2));
 
   // Prioridade máxima: tarifas lidas da PRÓPRIA conta do cliente — valem para
@@ -67,21 +68,45 @@ export function calcularSimulacao(env, { consumoKwh, distribuidora = "", uf = ""
   const tusdConta = Number(tusdKwhConta);
   const teConta = Number(teKwhConta);
   const tarifaDaConta = ehTarifaUnitariaValida(tusdConta) && ehTarifaUnitariaValida(teConta);
-  const tarifa = tarifaDaConta
-    ? {
-        nomes: [cleanText(distribuidora, 80) || "sua distribuidora"],
-        uf: cleanText(uf, 2).toUpperCase() || "—",
-        subgrupo: "conforme a conta enviada",
-        tusdKwh: tusdConta,
-        teKwh: teConta,
-        referencia: "tarifas unitárias (com tributos) lidas da própria conta enviada",
-        generica: false,
-        daConta: true,
-      }
-    : resolverTarifa(distribuidora, uf);
+
+  // Plano B universal (qualquer concessionária do Brasil): sem TUSD/TE legíveis,
+  // a tarifa média sai da própria conta — (valor total − CIP) ÷ consumo.
+  const totalConta = Number(valorTotalConta);
+  const cipParaMedia = Number.isFinite(Number(cip)) && Number(cip) > 0 ? Number(cip) : 0;
+  const mediaKwh = Number.isFinite(totalConta) && totalConta > 0 ? (totalConta - cipParaMedia) / consumo : NaN;
+  const tarifaMediaValida = !tarifaDaConta && mediaKwh >= 0.3 && mediaKwh <= 4;
+
+  let tarifa;
+  if (tarifaDaConta) {
+    tarifa = {
+      nomes: [cleanText(distribuidora, 80) || "sua distribuidora"],
+      uf: cleanText(uf, 2).toUpperCase() || "—",
+      subgrupo: "conforme a conta enviada",
+      tusdKwh: tusdConta,
+      teKwh: teConta,
+      referencia: "tarifas unitárias (com tributos) lidas da própria conta enviada",
+      generica: false,
+      daConta: true,
+    };
+  } else if (tarifaMediaValida) {
+    tarifa = {
+      nomes: [cleanText(distribuidora, 80) || "sua distribuidora"],
+      uf: cleanText(uf, 2).toUpperCase() || "—",
+      subgrupo: "conforme a conta enviada",
+      tusdKwh: null,
+      teKwh: null,
+      mediaKwh: round2(mediaKwh * 10000) / 10000,
+      referencia: "tarifa média calculada da própria conta (valor total ÷ consumo)",
+      generica: false,
+      daConta: true,
+      mediaDaConta: true,
+    };
+  } else {
+    tarifa = resolverTarifa(distribuidora, uf);
+  }
 
   const cipValor = Number.isFinite(Number(cip)) && Number(cip) > 0 ? round2(Number(cip)) : null;
-  const parcelaElegivel = round2(consumo * (tarifa.tusdKwh + tarifa.teKwh));
+  const parcelaElegivel = round2(consumo * (tarifa.mediaKwh ?? (tarifa.tusdKwh + tarifa.teKwh)));
   const economiaMensal = round2(parcelaElegivel * taxa);
   const semSolucao = round2(parcelaElegivel + (cipValor || 0));
   const comSolucao = round2(semSolucao - economiaMensal);
@@ -90,8 +115,8 @@ export function calcularSimulacao(env, { consumoKwh, distribuidora = "", uf = ""
   const avisos = [
     politica
       ? politica.icmsTusd > 0
-        ? `Proposta conforme a Política de Preços (competência ${COMPETENCIA_POLITICA}) para ${politica.nome}: desconto de ${politica.descTotal}% sobre a tarifa; como o seu estado cobra ICMS sobre a TUSD na geração distribuída (${politica.icmsTusd}%), o benefício líquido considerado é de ${politica.descLiquido}%.`
-        : `Proposta conforme a Política de Preços (competência ${COMPETENCIA_POLITICA}) para ${politica.nome}: desconto de ${politica.descTotal}% sobre a tarifa — seu estado tem isenção plena de ICMS-TUSD na geração distribuída, então o benefício líquido é integral.`
+        ? `Desconto de ${politica.descTotal}% sobre a tarifa conforme a política vigente (competência ${COMPETENCIA_POLITICA}) para ${politica.nome}. No seu estado há cobrança de ICMS sobre a TUSD na geração distribuída (${politica.icmsTusd}%): o benefício líquido efetivo tende a ${politica.descLiquido}% — o especialista detalha na proposta.`
+        : `Desconto de ${politica.descTotal}% sobre a tarifa conforme a política vigente (competência ${COMPETENCIA_POLITICA}) para ${politica.nome}. Seu estado tem isenção plena de ICMS-TUSD na geração distribuída — benefício líquido integral.`
       : "Desconto de referência: a concessionária não foi identificada na política vigente — o percentual exato é confirmado pelo especialista na proposta.",
     "Simulação ilustrativa: TUSD e TE dependem da concessionária e do estado da unidade. A proposta final depende da fatura e do enquadramento da unidade.",
     "Cálculo linear, sem reajustes ou mudanças de consumo. O contrato prevê reajuste anual de IPCA + 2%; esse efeito não está aplicado na projeção.",
@@ -99,7 +124,9 @@ export function calcularSimulacao(env, { consumoKwh, distribuidora = "", uf = ""
       ? "CIP e demais taxas não foram estimadas — a comparação considera somente a parcela elegível (TUSD + TE)."
       : "CIP/Taxas: considera somente o valor identificado na conta; outras taxas não foram estimadas.",
   ];
-  if (tarifa.daConta) {
+  if (tarifa.mediaDaConta) {
+    avisos.unshift("As tarifas exatas (TUSD/TE) não vieram legíveis: usamos a tarifa média da sua própria conta (valor total ÷ consumo) — o especialista refina na proposta.");
+  } else if (tarifa.daConta) {
     avisos.unshift("As tarifas de TUSD e TE desta simulação foram lidas da sua própria conta — o cálculo já reflete a sua distribuidora.");
   } else if (tarifa.generica) {
     avisos.unshift(
@@ -371,7 +398,7 @@ export function normalizarExtracao(json) {
 // A quantidade da linha TUSD é o consumo faturado do mês.
 export function extrairPorRegex(texto) {
   const t = String(texto || "");
-  const tusdLinha = t.match(/(?:USO\s+SIST\.?\s*DISTR\.?[^K]{0,40}|TUSD[^K]{0,20})KWH\s+([\d.,]+)\s+([\d.,]+)/i);
+  const tusdLinha = t.match(/(?:USO\s+(?:DO\s+)?SIST[^K]{0,40}|TUSD[^K]{0,20})KWH\s+([\d.,]+)\s+([\d.,]+)/i);
   const teLinha = t.match(/ENERGIA(?:\s*\(?TE\)?)?[^K]{0,20}KWH\s+([\d.,]+)\s+([\d.,]+)/i);
   if (!tusdLinha) return null;
 
