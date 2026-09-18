@@ -172,7 +172,7 @@ test("extrairPorRegex lê o layout Coelba/Neoenergia (Consumo - TUSD / Consumo -
   assert.equal(r.consumoKwh, 6800);
   assert.equal(r.tusdUnit, 0.682025);
   assert.equal(r.teUnit, 0.487341);
-  assert.equal(r.distribuidora, "Neoenergia");
+  assert.equal(r.distribuidora, "Coelba");
   assert.equal(r.uf, "BA");
 });
 

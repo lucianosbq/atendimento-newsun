@@ -408,7 +408,8 @@ export function extrairPorRegex(texto) {
   const tusd = numeroBr(tusdLinha[2]);
   const te = teLinha ? numeroBr(teLinha[2]) : NaN;
   const cipLinha = t.match(/(?:COSIP|CONTRIB[^\n]{0,30}ILUM|C\.?I\.?P\.?)[^\d\n-]{0,40}([\d.,]+)/i);
-  const ufLinha = t.match(/\/\s*([A-Z]{2})\b/);
+  // "CIDADE/UF" ou "CIDADE - UF", restrito às 27 UFs reais ("- TE" nunca é estado).
+  const ufLinha = t.match(/[\/\-–]\s*(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\b/);
 
   const distribuidoras = [
     [/enel|eletropaulo/i, "Enel SP"], [/cemig/i, "Cemig"], [/coelba/i, "Coelba"], [/celpe/i, "Neoenergia PE"],
@@ -436,6 +437,8 @@ function numeroBr(valor) {
   if (typeof valor === "number") return valor;
   const texto = cleanText(valor, 20);
   if (!texto) return NaN;
+  // "6.800" (ponto de milhar, sem vírgula) é 6800 — não 6,8.
+  if (/^\d{1,3}(\.\d{3})+$/.test(texto)) return Number(texto.replace(/\./g, ""));
   const normalizado = /,\d{1,6}$/.test(texto) ? texto.replace(/\./g, "").replace(",", ".") : texto;
   return Number(normalizado);
 }
