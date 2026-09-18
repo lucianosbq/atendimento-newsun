@@ -959,6 +959,113 @@
       content: `Simulação apresentada: economia de ${brl2(sim.resultado.economiaMensal)} por mês (${sim.resultado.pctSobreElegivel}% sobre a parcela elegível), acumulando ${brl2(sim.projecaoAnual[sim.projecaoAnual.length - 1]?.acumulado || 0)} em 5 anos. Valores ilustrativos: TUSD e TE dependem da concessionária e do estado.`,
     });
     trimHistory();
+
+    // Registro visual no card do Bitrix — exatamente o que o cliente viu.
+    void enviarSnapshotSimulacao(sim);
+  }
+
+  // Desenha o cartão da simulação como imagem PNG e envia ao Worker, que anexa
+  // no card do Bitrix ao lado da fatura (pedido do Luciano, 18/09/2026).
+  // Melhor esforço: falha aqui nunca atrapalha o chat.
+  async function enviarSnapshotSimulacao(sim) {
+    try {
+      if (config.demoMode || !state.session?.token) return;
+      const base = String(config.apiBaseUrl || "").replace(/\/$/, "");
+      if (!base || base.includes("SEU-SUBDOMINIO")) return;
+
+      const W = 720;
+      const c = document.createElement("canvas");
+      const medidor = c.getContext("2d");
+
+      const quebrar = (texto, fonte, largura) => {
+        medidor.font = fonte;
+        const palavras = String(texto).split(/\s+/);
+        const linhas = [];
+        let atual = "";
+        for (const p of palavras) {
+          const teste = atual ? `${atual} ${p}` : p;
+          if (medidor.measureText(teste).width > largura && atual) { linhas.push(atual); atual = p; }
+          else atual = teste;
+        }
+        if (atual) linhas.push(atual);
+        return linhas;
+      };
+
+      const fonteAviso = "13px Arial";
+      const linhasAvisos = (sim.avisos || []).flatMap((a) => quebrar(`* ${a}`, fonteAviso, W - 80));
+      const H = 700 + linhasAvisos.length * 18 + 40;
+      c.width = W; c.height = H;
+      const g = c.getContext("2d");
+
+      const fundo = g.createLinearGradient(0, 0, W, H);
+      fundo.addColorStop(0, "#07192e"); fundo.addColorStop(1, "#0d294c");
+      g.fillStyle = fundo; g.fillRect(0, 0, W, H);
+
+      const brl = (n) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 });
+      let y = 58;
+      g.fillStyle = "#ffffff"; g.font = "700 30px Arial"; g.textAlign = "left";
+      g.fillText("A economia em reais", 40, y);
+      y += 28; g.fillStyle = "#ff9d29"; g.font = "600 15px Arial";
+      g.fillText(`Simulação ilustrativa · ${sim.tarifa.nome} (${sim.tarifa.uf}) · ${Number(sim.entrada.consumoKwh).toLocaleString("pt-BR")} kWh/mês`, 40, y);
+
+      // Comparação sem/com a solução
+      const maior = sim.resultado.semSolucao || 1;
+      const baseBarras = y + 250;
+      [["Sem a solução", sim.resultado.semSolucao, "#1a74e4"], ["Com a solução", sim.resultado.comSolucao, "#ff8a00"]]
+        .forEach(([rotulo, valor, cor], i) => {
+          const x = 110 + i * 320, largura = 180;
+          const altura = Math.max(46, (valor / maior) * 190);
+          g.textAlign = "center"; g.fillStyle = "#e8f1fb"; g.font = "700 20px Arial";
+          g.fillText(brl(valor), x + largura / 2, baseBarras - altura - 12);
+          g.fillStyle = cor; g.fillRect(x, baseBarras - altura, largura, altura);
+          g.fillStyle = "#9fb2c7"; g.font = "14px Arial";
+          g.fillText(rotulo, x + largura / 2, baseBarras + 24);
+        });
+
+      // Destaque da economia
+      y = baseBarras + 56;
+      g.fillStyle = "rgba(255,138,0,0.12)"; g.fillRect(40, y, W - 80, 96);
+      g.strokeStyle = "rgba(255,138,0,0.45)"; g.strokeRect(40, y, W - 80, 96);
+      g.textAlign = "center";
+      g.fillStyle = "#ff8a00"; g.font = "800 32px Arial";
+      g.fillText(brl(sim.resultado.economiaMensal), W / 2, y + 40);
+      g.fillStyle = "#ffffff"; g.font = "600 15px Arial";
+      g.fillText("de economia mensal nesta simulação", W / 2, y + 62);
+      g.fillStyle = "#9fb2c7"; g.font = "12px Arial";
+      g.fillText(`${sim.resultado.pctSobreElegivel}% sobre a parcela elegível · ${sim.resultado.pctSobreSubtotal}% sobre o subtotal considerado`, W / 2, y + 82);
+
+      // Projeção de 5 anos
+      y += 130;
+      g.textAlign = "left"; g.fillStyle = "#ffffff"; g.font = "700 17px Arial";
+      g.fillText("Como essa economia pode se acumular", 40, y);
+      const teto = sim.projecaoAnual[sim.projecaoAnual.length - 1]?.acumulado || 1;
+      const baseProj = y + 118;
+      sim.projecaoAnual.forEach((p, i) => {
+        const x = 48 + i * 128, largura = 104;
+        const altura = Math.max(12, (p.acumulado / teto) * 72);
+        g.textAlign = "center"; g.fillStyle = "#e8f1fb"; g.font = "600 12px Arial";
+        g.fillText(brl(p.acumulado), x + largura / 2, baseProj - altura - 8);
+        g.fillStyle = "#ff8a00"; g.fillRect(x, baseProj - altura, largura, altura);
+        g.fillStyle = "#9fb2c7"; g.font = "12px Arial";
+        g.fillText(`${p.ano}º ano`, x + largura / 2, baseProj + 18);
+      });
+
+      // Letra miúda
+      y = baseProj + 46;
+      g.textAlign = "left"; g.fillStyle = "#7188a0"; g.font = fonteAviso;
+      for (const linha of linhasAvisos) { g.fillText(linha, 40, y); y += 18; }
+
+      const image = c.toDataURL("image/png");
+      if (image.length > 1_150_000) return;
+      await fetch(`${base}/v1/simulation-snapshot`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "omit",
+        body: JSON.stringify({ sessionToken: state.session.token, image }),
+      });
+    } catch (error) {
+      console.warn("snapshot da simulação não foi anexado", error);
+    }
   }
 
   // Quando a leitura automática da conta falha (PDF ou foto ilegível), pede o

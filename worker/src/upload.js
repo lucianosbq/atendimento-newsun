@@ -176,6 +176,27 @@ export async function handleFileDownload(env, uploadId, token) {
   });
 }
 
+// Recebe do site a imagem PNG do cartão de simulação (desenhada no navegador)
+// e a anexa no MESMO card do Bitrix, ao lado da fatura (pedido do Luciano,
+// 18/09/2026). Melhor esforço: sem card, confirma sem anexar.
+export async function handleSimulationSnapshot({ env, input }) {
+  const session = await findSessionByToken(env, cleanText(input?.sessionToken, 160));
+  if (!session) throw new HttpError(403, "Sessão inválida ou expirada.", "invalid_session");
+
+  const casado = String(input?.image || "").match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/);
+  if (!casado || casado[1].length > 900_000) {
+    throw new HttpError(400, "Imagem da simulação inválida (PNG em data URL, até ~650 KB).", "invalid_snapshot");
+  }
+  if (!session.bitrix_entity_id) return { ok: true, anexado: false };
+
+  const resultado = await addBitrixTimelineComment(env, {
+    entityId: session.bitrix_entity_id,
+    text: `📊 Simulação de economia apresentada ao cliente no chat — protocolo ${session.protocol}. A imagem anexa é exatamente o cartão que o cliente viu.`,
+    files: [{ name: `simulacao-${session.protocol}.png`, base64: casado[1] }],
+  });
+  return { ok: true, anexado: Boolean(resultado?.ok) };
+}
+
 export async function cleanupExpiredUploads(env) {
   if (!env.DB || !env.UPLOADS) return;
   const now = nowIso();

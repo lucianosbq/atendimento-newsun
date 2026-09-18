@@ -1,7 +1,7 @@
 import { DEPARTMENTS } from "./constants.js";
 import { cleanupExpiredData, createHandoff, getHandoffStatus, updateWhatsAppStatuses } from "./handoff.js";
 import { appendSessionTimeline, createChatSession, findSessionByToken, markSessionAbandoned } from "./session.js";
-import { handleAccountUpload, handleFileDownload } from "./upload.js";
+import { handleAccountUpload, handleFileDownload, handleSimulationSnapshot } from "./upload.js";
 import { answerPublicChat } from "./llm.js";
 import { ingestPublicDocument } from "./rag.js";
 import { calcularSimulacao } from "./simulacao.js";
@@ -140,6 +140,24 @@ async function route(request, env, ctx) {
     ctx.waitUntil(recordChatTurnBestEffort(env, input, result));
     ctx.waitUntil(cleanupOldRateLimitsBestEffort(env));
     return json(result);
+  }
+
+  // Imagem do cartão de simulação (desenhada no navegador) → anexo no card do Bitrix.
+  if (method === "POST" && url.pathname === "/v1/simulation-snapshot") {
+    assertOriginAllowed(request, env);
+    const rate = await enforceRateLimit({
+      request,
+      env,
+      scope: "snapshot",
+      limit: clampInt(env.UPLOAD_RATE_LIMIT, 10, 1, 60),
+      windowSeconds: clampInt(env.UPLOAD_RATE_WINDOW_SECONDS, 3600, 60, 86_400),
+    });
+    if (!rate.allowed) {
+      throw new HttpError(429, "Muitos envios seguidos. Aguarde alguns minutos.", "rate_limited", { retryAfter: rate.retryAfter });
+    }
+    const input = await readJson(request, 1_200_000);
+    const result = await handleSimulationSnapshot({ env, input });
+    return json(result, 201);
   }
 
   // Simulação manual: usada quando a leitura automática da conta não foi possível
