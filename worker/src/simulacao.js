@@ -192,6 +192,7 @@ export async function analisarConta(env, file) {
   if (!env?.AI || !file) return null;
   if (/^image\/(jpeg|png)$/.test(file.type)) {
     const porVisao = await analisarContaImagem(env, file);
+    console.log(`[leitura-conta] visão (${file.type}, ${Math.round(file.size / 1024)} KB): consumo=${porVisao?.consumoKwh ?? "nulo"}`);
     if (porVisao?.consumoKwh) return porVisao;
     const porTexto = await analisarPorTextoExtraido(env, file);
     return porTexto?.consumoKwh ? porTexto : porVisao || porTexto;
@@ -222,7 +223,7 @@ async function visaoSobreBytes(env, bytes) {
     const texto = typeof result === "string" ? result : result?.response || result?.description || "";
     return normalizarExtracao(extrairJson(texto));
   } catch (error) {
-    console.error("visaoSobreBytes falhou", error);
+    console.error("[leitura-conta] visaoSobreBytes falhou", String(error).slice(0, 300));
     return null;
   }
 }

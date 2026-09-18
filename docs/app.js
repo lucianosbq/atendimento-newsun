@@ -1170,7 +1170,9 @@
       addMessage("assistant", "Formato não aceito. Envie a conta em PDF, JPG ou PNG.");
       return;
     }
-    if (/^image\//.test(file.type) && file.size > 8 * 1024 * 1024) {
+    // Acima de ~1,5 MB o modelo de visão passa a falhar com a imagem crua —
+    // reduz sempre (2400px, JPEG 85%): leitura mais confiável e envio mais rápido.
+    if (/^image\//.test(file.type) && file.size > 1.5 * 1024 * 1024) {
       file = await comprimirImagem(file).catch(() => file);
     }
     if (file.size > 8 * 1024 * 1024) {
