@@ -64,6 +64,18 @@ test("todo resultado carrega os avisos de TUSD/TE e de reajuste", () => {
   assert.ok(sim.avisos.some((a) => /IPCA \+ 2%/.test(a)));
 });
 
+test("aviso permanente: leitura automática + validação humana, em qualquer método", () => {
+  const permanente = /leitura autom[áa]tica.*valida[çc][ãa]o do atendimento humano|valida[çc][ãa]o do atendimento humano/;
+  for (const entrada of [
+    { consumoKwh: 5000, distribuidora: "Enel SP", tusdKwhConta: 0.56282, teKwhConta: 0.381 },
+    { consumoKwh: 500, distribuidora: "Coelba", cip: 50, valorTotalConta: 650 },
+    { consumoKwh: 2000, distribuidora: "Cooperativa XYZ" },
+  ]) {
+    const sim = calcularSimulacao({}, entrada);
+    assert.ok(sim.avisos.some((a) => permanente.test(a) && /ilustrativ/i.test(a)));
+  }
+});
+
 test("consumo fora da faixa não simula", () => {
   assert.equal(calcularSimulacao({}, { consumoKwh: 50 }), null);
   assert.equal(calcularSimulacao({}, { consumoKwh: "abc" }), null);

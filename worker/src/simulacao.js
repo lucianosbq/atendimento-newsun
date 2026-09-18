@@ -113,6 +113,7 @@ export function calcularSimulacao(env, { consumoKwh, distribuidora = "", uf = ""
   const pctSubtotal = round2((economiaMensal / semSolucao) * 100);
 
   const avisos = [
+    "Valores ilustrativos, calculados a partir da sua conta por leitura automática — pode haver discrepância na interpretação dos dados. Toda proposta passa por validação do atendimento humano antes de valer.",
     politica
       ? politica.icmsTusd > 0
         ? `Desconto de ${politica.descTotal}% sobre a tarifa conforme a política vigente (competência ${COMPETENCIA_POLITICA}) para ${politica.nome}. No seu estado há cobrança de ICMS sobre a TUSD na geração distribuída (${politica.icmsTusd}%): o benefício líquido efetivo tende a ${politica.descLiquido}% — o especialista detalha na proposta.`
