@@ -3,25 +3,45 @@ import assert from "node:assert/strict";
 import zlib from "node:zlib";
 import { calcularSimulacao, extrairJpegsDoPdf, extrairPorRegex, extrairTextoDoPdf, normalizarExtracao, resolverTarifa } from "../src/simulacao.js";
 
-// Valores do material oficial "A economia em reais" (Enel SP, B3 convencional,
-// 5.000 kWh/mês, CIP R$ 343,41): a simulação tem de reproduzi-los ao centavo.
-test("simulação reproduz o material oficial da Enel SP", () => {
+// Base tarifária do material oficial (Enel SP, B3, 5.000 kWh, CIP R$ 343,41) com
+// o desconto da Política de Preços julho/2026: Eletropaulo = 15% total − 11,62%
+// de ICMS-TUSD = 3,38% líquido.
+test("simulação da Enel SP segue a Política de Preços (líquido 3,38%)", () => {
   const sim = calcularSimulacao({}, { consumoKwh: 5000, distribuidora: "Enel SP", uf: "SP", cip: 343.41 });
   assert.equal(sim.resultado.parcelaElegivel, 3946.9);
   assert.equal(sim.resultado.semSolucao, 4290.31);
-  assert.equal(sim.resultado.economiaMensal, 789.38);
-  assert.equal(sim.resultado.comSolucao, 3500.93);
-  assert.equal(sim.resultado.pctSobreElegivel, 20);
-  assert.equal(sim.resultado.pctSobreSubtotal, 18.4);
-  assert.deepEqual(sim.projecaoAnual.map((p) => p.acumulado), [9472.56, 18945.12, 28417.68, 37890.24, 47362.8]);
-  assert.equal(sim.tarifa.generica, false);
+  assert.equal(sim.resultado.pctSobreElegivel, 3.38);
+  assert.equal(sim.resultado.economiaMensal, Math.round(3946.9 * 0.0338 * 100) / 100);
+  assert.equal(sim.politica.concessionaria, "ELETROPAULO");
+  assert.equal(sim.politica.descontoTotalPct, 15);
+  assert.equal(sim.politica.icmsTusdPct, 11.62);
+  assert.ok(sim.avisos.some((a) => /Pol[íi]tica de Pre[çc]os/.test(a) && /ICMS sobre a TUSD/.test(a)));
 });
 
-test("distribuidora desconhecida cai na referência com aviso explícito", () => {
+test("estado com isenção plena usa o desconto integral da política", () => {
   const sim = calcularSimulacao({}, { consumoKwh: 2000, distribuidora: "Cemig", uf: "MG" });
-  assert.equal(sim.tarifa.generica, true);
-  assert.match(sim.avisos[0], /refer[êe]ncia de S[ãa]o Paulo/i);
+  assert.equal(sim.politica.concessionaria, "CEMIG-D");
+  assert.equal(sim.resultado.pctSobreElegivel, 20);
+  assert.ok(sim.avisos.some((a) => /isen[çc][ãa]o plena/.test(a)));
+  assert.ok(sim.avisos.some((a) => /refer[êe]ncia de S[ãa]o Paulo/i.test(a)));
   assert.equal(sim.resultado.cip, null);
+});
+
+test("concessionária fora da política cai no desconto de referência com aviso", () => {
+  const sim = calcularSimulacao({}, { consumoKwh: 2000, distribuidora: "Cooperativa XYZ", uf: "" });
+  assert.equal(sim.politica, null);
+  assert.equal(sim.resultado.pctSobreElegivel, 20);
+  assert.ok(sim.avisos.some((a) => /Desconto de refer[êe]ncia/.test(a)));
+});
+
+test("resolverPolitica casa por nome e por UF única, e não chuta em SP", async () => {
+  const { resolverPolitica } = await import("../src/precos.js");
+  assert.equal(resolverPolitica("Enel Distribuição São Paulo", "").nome, "ELETROPAULO");
+  assert.equal(resolverPolitica("CPFL Piratininga", "").descLiquido, 9.44);
+  assert.equal(resolverPolitica("Equatorial Pará", "").descLiquido, 15);
+  assert.equal(resolverPolitica("Equatorial Piauí", "").descLiquido, 10);
+  assert.equal(resolverPolitica("", "RJ").nome, "LIGHT SESA");
+  assert.equal(resolverPolitica("", "SP"), null);
 });
 
 test("todo resultado carrega os avisos de TUSD/TE e de reajuste", () => {
@@ -74,9 +94,11 @@ test("tarifas lidas da própria conta têm prioridade sobre a tabela", () => {
   assert.equal(sim.tarifa.daConta, true);
   assert.equal(sim.tarifa.tusdKwh, 0.56282);
   assert.match(sim.tarifa.referencia, /pr[óo]pria conta/);
-  assert.match(sim.avisos[0], /lidas da sua pr[óo]pria conta/);
+  assert.ok(sim.avisos.some((a) => /lidas da sua pr[óo]pria conta/.test(a)));
   assert.equal(sim.resultado.parcelaElegivel, Math.round(7102.8 * 0.94382 * 100) / 100);
-  assert.equal(sim.resultado.economiaMensal, Math.round(sim.resultado.parcelaElegivel * 0.2 * 100) / 100);
+  // desconto da política para Enel SP (líquido 3,38%), sobre a parcela elegível da conta
+  assert.equal(sim.resultado.pctSobreElegivel, 3.38);
+  assert.equal(sim.resultado.economiaMensal, Math.round(sim.resultado.parcelaElegivel * 0.0338 * 100) / 100);
 });
 
 test("tarifa unitária fora da faixa é ignorada e cai na tabela", () => {

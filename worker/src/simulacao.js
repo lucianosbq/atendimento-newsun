@@ -1,3 +1,4 @@
+import { COMPETENCIA_POLITICA, resolverPolitica } from "./precos.js";
 import { cleanText, safeJsonParse } from "./utils.js";
 
 // Motor da simulação de economia mostrada quando o visitante envia a conta pelo
@@ -52,7 +53,14 @@ export function calcularSimulacao(env, { consumoKwh, distribuidora = "", uf = ""
   const consumo = Number(consumoKwh);
   if (!Number.isFinite(consumo) || consumo < 100 || consumo > 1_000_000) return null;
 
-  const taxa = Math.min(0.5, Math.max(0.05, Number(env?.SIMULATION_DISCOUNT_RATE) || 0.2));
+  // Desconto conforme a Política de Preços Mensal (por concessionária): o
+  // benefício líquido ao cliente é o desconto total sobre a tarifa MENOS o
+  // ICMS-TUSD do estado (fórmula oficial). Concessionária fora da política cai
+  // no desconto de referência do ambiente, com aviso.
+  const politica = resolverPolitica(distribuidora, uf);
+  const taxa = politica
+    ? politica.descLiquido / 100
+    : Math.min(0.5, Math.max(0.05, Number(env?.SIMULATION_DISCOUNT_RATE) || 0.2));
 
   // Prioridade máxima: tarifas lidas da PRÓPRIA conta do cliente — valem para
   // qualquer concessionária do Brasil e eliminam a dependência da tabela.
@@ -80,6 +88,11 @@ export function calcularSimulacao(env, { consumoKwh, distribuidora = "", uf = ""
   const pctSubtotal = round2((economiaMensal / semSolucao) * 100);
 
   const avisos = [
+    politica
+      ? politica.icmsTusd > 0
+        ? `Proposta conforme a Política de Preços (competência ${COMPETENCIA_POLITICA}) para ${politica.nome}: desconto de ${politica.descTotal}% sobre a tarifa; como o seu estado cobra ICMS sobre a TUSD na geração distribuída (${politica.icmsTusd}%), o benefício líquido considerado é de ${politica.descLiquido}%.`
+        : `Proposta conforme a Política de Preços (competência ${COMPETENCIA_POLITICA}) para ${politica.nome}: desconto de ${politica.descTotal}% sobre a tarifa — seu estado tem isenção plena de ICMS-TUSD na geração distribuída, então o benefício líquido é integral.`
+      : "Desconto de referência: a concessionária não foi identificada na política vigente — o percentual exato é confirmado pelo especialista na proposta.",
     "Simulação ilustrativa: TUSD e TE dependem da concessionária e do estado da unidade. A proposta final depende da fatura e do enquadramento da unidade.",
     "Cálculo linear, sem reajustes ou mudanças de consumo. O contrato prevê reajuste anual de IPCA + 2%; esse efeito não está aplicado na projeção.",
     cipValor === null
@@ -111,6 +124,9 @@ export function calcularSimulacao(env, { consumoKwh, distribuidora = "", uf = ""
       referencia: tarifa.referencia,
       generica: tarifa.generica,
     },
+    politica: politica
+      ? { concessionaria: politica.nome, uf: politica.uf, descontoTotalPct: politica.descTotal, icmsTusdPct: politica.icmsTusd, descontoLiquidoPct: politica.descLiquido, competencia: COMPETENCIA_POLITICA }
+      : null,
     resultado: {
       parcelaElegivel,
       cip: cipValor,
